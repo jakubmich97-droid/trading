@@ -3,10 +3,13 @@
 
  ********************************************************************/
 window.addEventListener("load", () => {
-    let saved = localStorage.getItem("lastExport");
+    let saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        parseImportedData(saved);
+        parseImportedData(saved, { silent: true });
         console.log("Automaticky načten poslední uložený stav.");
+    } else {
+        updateAccount();
+        drawChart();
     }
 });
 /* ---------------------------------------------------
@@ -23,6 +26,8 @@ let tradeId = 1;
 const SPREAD = 0.02;
 const COMMISSION = 0.10;
 const LEVERAGE = 1;
+const STORAGE_KEY = "tradingGameState";
+const AUTOSAVE_INTERVAL = 2000;
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -101,6 +106,9 @@ function setSpeed(ms) {
     clearInterval(timer);
     if (ms > 0) timer = setInterval(updatePrice, ms);
 }
+
+setInterval(saveGameState, AUTOSAVE_INTERVAL);
+window.addEventListener("beforeunload", saveGameState);
 
 /* ---------------------------------------------------
       DRAW MAIN CHART
@@ -509,7 +517,23 @@ function calculateCost() {
 --------------------------------------------------- */
 
 function exportData() {
+    const text = buildSaveText();
 
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+
+    let dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `trading_export_${dateStr}.txt`;
+
+    a.click();
+    URL.revokeObjectURL(url);
+    localStorage.setItem(STORAGE_KEY, text);
+}
+
+function buildSaveText() {
     // Oddělené sekce do TXT
     let text = "=== TRADING GAME EXPORT ===\n";
     text += `Export created: ${new Date().toLocaleString()}\n\n`;
@@ -521,7 +545,14 @@ function exportData() {
     text += `Price: ${price}\n\n`;
 
     /* ----------------------------------------
-       2) Otevřené obchody
+       2) Stav účtu
+    ---------------------------------------- */
+    text += "=== ACCOUNT ===\n";
+    text += `Balance: ${balance}\n`;
+    text += `NextTradeId: ${tradeId}\n\n`;
+
+    /* ----------------------------------------
+       3) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -541,8 +572,7 @@ function exportData() {
     text += "\n";
 
     /* ----------------------------------------
-       3) Uzavřené obchody (pokud chceš)
-       — pokud je chceš ukládat, přidám closedTrades[]
+       4) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -564,7 +594,7 @@ function exportData() {
     }
 
     /* ----------------------------------------
-       4) candles (svíčky)
+       5) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 50 CANDLES (OHLC) ===\n";
 
@@ -572,28 +602,31 @@ function exportData() {
         text += `${i}. O:${c.o} H:${c.h} L:${c.l} C:${c.c}\n`;
     });
 
-    /* ----------------------------------------
-       Stáhnutí souboru textu
-    ---------------------------------------- */
+    return text;
+}
 
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-
-    let dateStr = new Date().toISOString().replace(/[:.]/g, "-");
-    a.download = `trading_export_${dateStr}.txt`;
-
-    a.click();
-    URL.revokeObjectURL(url);
-	localStorage.setItem("lastExport", text);
+function saveGameState() {
+    localStorage.setItem(STORAGE_KEY, buildSaveText());
 }
 
 /* ---------------------------------------------------
       IMPORT
 --------------------------------------------------- */
-function parseImportedData(text) {
+function parseImportedDataFromFile() {
+    const input = document.getElementById("importFile");
+    const file = input.files?.[0];
+    if (!file) return alert("Nejprve vyber .txt soubor.");
+
+    const reader = new FileReader();
+    reader.onload = e => parseImportedData(e.target.result);
+    reader.onerror = () => alert("Nepodařilo se přečíst soubor.");
+    reader.readAsText(file);
+}
+
+function parseImportedData(text, options = {}) {
+    if (!text || typeof text !== "string") return;
+
+    const { silent = false } = options;
 
     // Reset
     trades = [];
@@ -612,6 +645,16 @@ function parseImportedData(text) {
     let secPrice = getSection("CURRENT PRICE");
     let priceMatch = secPrice.match(/Price:\s*([0-9.]+)/);
     if (priceMatch) price = parseFloat(priceMatch[1]);
+
+    /* ----- ACCOUNT ----- */
+    let secAccount = getSection("ACCOUNT");
+    if (secAccount) {
+        let balanceMatch = secAccount.match(/Balance:\s*([0-9.]+)/);
+        if (balanceMatch) balance = Number(balanceMatch[1]);
+
+        let tradeIdMatch = secAccount.match(/NextTradeId:\s*([0-9]+)/);
+        if (tradeIdMatch) tradeId = Number(tradeIdMatch[1]);
+    }
 
     /* ----- OPEN TRADES ----- */
     let secOpen = getSection("OPEN TRADES");
@@ -675,12 +718,44 @@ function parseImportedData(text) {
     }
 
     candleIndex = candles.length - 1;
+    tick = 0;
+    velocity = 0;
 
     // Refresh displays
     document.getElementById("price").innerText = price;
     renderTrades();
     updateAccount();
     drawChart();
+    calculateCost();
 
-    alert("Data byla úspěšně načtena.");
+    if (!silent) alert("Data byla úspěšně načtena.");
+}
+
+function newGame() {
+    const shouldReset = confirm("Opravdu chceš spustit novou hru? Současný stav se vymaže.");
+    if (!shouldReset) return;
+
+    price = 100;
+    velocity = 0;
+    trades = [];
+    balance = 1000;
+    tradeId = 1;
+    candles = [{ o: 100, h: 100, l: 100, c: 100 }];
+    candleIndex = 0;
+    tick = 0;
+    tradeMarkers = [];
+    window.closedTrades = [];
+
+    document.getElementById("price").innerText = price;
+    document.getElementById("status").innerText = "Nová hra spuštěna.";
+    document.getElementById("sl").value = "";
+    document.getElementById("tp").value = "";
+    document.getElementById("volume").value = "";
+    document.getElementById("cost").innerText = "0";
+    document.getElementById("trades").innerHTML = "";
+
+    localStorage.removeItem(STORAGE_KEY);
+    renderTrades();
+    updateAccount();
+    drawChart();
 }
