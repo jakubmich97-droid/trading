@@ -1,0 +1,686 @@
+/********************************************************************
+ *  TRADING GAME 
+
+ ********************************************************************/
+window.addEventListener("load", () => {
+    let saved = localStorage.getItem("lastExport");
+    if (saved) {
+        parseImportedData(saved);
+        console.log("Automaticky načten poslední uložený stav.");
+    }
+});
+/* ---------------------------------------------------
+      BASE VARIABLES
+--------------------------------------------------- */
+
+let price = 100;
+let velocity = 0;
+
+let trades = [];
+let balance = 1000;
+let tradeId = 1;
+
+const SPREAD = 0.02;
+const COMMISSION = 0.10;
+const LEVERAGE = 1;
+
+/* ---------------------------------------------------
+      CANVAS INIT (RESPONSIVE)
+--------------------------------------------------- */
+
+const canvas = document.getElementById("chart");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+    const parent = document.getElementById("chartContainer");
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+/* ---------------------------------------------------
+      CANDLE DATA
+--------------------------------------------------- */
+
+let candles = [{
+    o: 100, h: 100, l: 100, c: 100
+}];
+
+let candleIndex = 0;
+let tick = 0;
+
+/* ---------------------------------------------------
+      PRICE ENGINE (CREATES OHLC)
+--------------------------------------------------- */
+
+function updatePrice() {
+    let randomFactor = (Math.random() - 0.5) * 0.25;
+    velocity = (velocity + randomFactor) * 0.92;
+
+    price += velocity;
+    price = Math.max(0.01, Math.round(price * 100) / 100);
+
+    document.getElementById("price").innerText = price;
+
+    tick++;
+
+    // update current candle
+    let c = candles[candles.length - 1];
+    c.h = Math.max(c.h, price);
+    c.l = Math.min(c.l, price);
+    c.c = price;
+
+    // new candle every 6 ticks
+    if (tick >= 6) {
+        candleIndex++;
+        candles.push({ o: price, h: price, l: price, c: price });
+
+        if (candles.length > 50)
+            candles.splice(0, candles.length - 50);
+
+        tick = 0;
+
+        // shift trade markers
+        tradeMarkers = tradeMarkers
+            .filter(m => m.x > 0)
+            .map(m => ({ ...m, x: m.x - 1 }));
+
+        // SL/TP lines move automatically because we map price→pixel
+    }
+
+    drawChart();
+    checkAllTrades();
+    renderTrades();
+    calculateCost();
+}
+
+let timer = setInterval(updatePrice, 1000);
+
+function setSpeed(ms) {
+    clearInterval(timer);
+    if (ms > 0) timer = setInterval(updatePrice, ms);
+}
+
+/* ---------------------------------------------------
+      DRAW MAIN CHART
+--------------------------------------------------- */
+
+function drawChart() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawCandles();
+    drawIndicators();
+    drawRSI();
+    drawTradeLines();
+    drawTradeMarkers();
+}
+
+/* ---------------------------------------------------
+      DRAW CANDLES
+--------------------------------------------------- */
+
+function drawCandles() {
+    let count = candles.length;
+    let cw = canvas.width / count;
+
+    let highs = candles.map(c => c.h);
+    let lows = candles.map(c => c.l);
+
+    let max = Math.max(...highs);
+    let min = Math.min(...lows);
+
+    function py(v) {
+        return (max - v) / (max - min) * canvas.height;
+    }
+
+    candles.forEach((c, i) => {
+        let x = i * cw + cw * 0.1;
+        let bodyW = cw * 0.8;
+
+        let color = c.c >= c.o ? "#3FCC51" : "#E84A5F";
+
+        // Wick
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x + bodyW / 2, py(c.h));
+        ctx.lineTo(x + bodyW / 2, py(c.l));
+        ctx.stroke();
+
+        // Body
+        ctx.fillStyle = color;
+        ctx.fillRect(
+            x,
+            py(Math.max(c.o, c.c)),
+            bodyW,
+            Math.abs(py(c.o) - py(c.c))
+        );
+    });
+}
+
+/* ---------------------------------------------------
+      INDICATORS (EMA 20 / EMA 50)
+--------------------------------------------------- */
+
+function EMA(values, period) {
+    let k = 2 / (period + 1);
+    let ema = [values[0]];
+
+    for (let i = 1; i < values.length; i++) {
+        ema[i] = values[i] * k + ema[i - 1] * (1 - k);
+    }
+    return ema;
+}
+
+function drawIndicators() {
+    let closes = candles.map(c => c.c);
+
+    let ema20 = EMA(closes, 20);
+    let ema50 = EMA(closes, 50);
+
+    drawIndicatorLine(ema20, "orange");
+    drawIndicatorLine(ema50, "purple");
+}
+
+function drawIndicatorLine(values, color) {
+    let count = candles.length;
+    let cw = canvas.width / count;
+
+    let highs = candles.map(c => c.h);
+    let lows = candles.map(c => c.l);
+
+    let max = Math.max(...highs);
+    let min = Math.min(...lows);
+
+    function py(v) {
+        return (max - v) / (max - min) * canvas.height;
+    }
+
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+
+    values.forEach((v, i) => {
+        if (v == null) return;
+        let x = i * cw + cw / 2;
+        let y = py(v);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+}
+
+/* ---------------------------------------------------
+      RSI OVERLAY (VARIANTA B)
+--------------------------------------------------- */
+
+function RSI(values, period = 14) {
+    if (values.length <= period) return Array(values.length).fill(null);
+
+    let rsi = [];
+    let gains = 0, losses = 0;
+
+    for (let i = 1; i <= period; i++) {
+        let d = values[i] - values[i - 1];
+        d >= 0 ? gains += d : losses -= d;
+    }
+
+    gains /= period;
+    losses /= period;
+
+    for (let i = period; i < values.length; i++) {
+        let d = values[i] - values[i - 1];
+
+        gains = (gains * (period - 1) + Math.max(d, 0)) / period;
+        losses = (losses * (period - 1) + Math.max(-d, 0)) / period;
+
+        let rs = gains / losses;
+        rsi.push(100 - 100 / (1 + rs));
+    }
+
+    return Array(period).fill(null).concat(rsi);
+}
+
+function drawRSI() {
+    let closes = candles.map(c => c.c);
+    let rsi = RSI(closes, 14);
+
+    let count = rsi.length;
+    let cw = canvas.width / count;
+
+    ctx.strokeStyle = "rgba(255,255,0,0.4)";
+    ctx.beginPath();
+
+    rsi.forEach((v, i) => {
+        if (v == null) return;
+        let x = i * cw + cw / 2;
+        let y = canvas.height - (v / 100) * canvas.height;
+        if (i === 14) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+}
+
+/* ---------------------------------------------------
+      TRADE MARKERS (BUY/SELL)
+--------------------------------------------------- */
+
+let tradeMarkers = []; // {x,y,type}
+
+function addTradeMarker(type) {
+    tradeMarkers.push({
+        x: candles.length - 1,
+        y: candles[candles.length - 1].c,
+        type
+    });
+}
+
+function drawTradeMarkers() {
+    let count = candles.length;
+    let cw = canvas.width / count;
+
+    let highs = candles.map(c => c.h);
+    let lows = candles.map(c => c.l);
+    let max = Math.max(...highs);
+    let min = Math.min(...lows);
+
+    function py(v) {
+        return (max - v) / (max - min) * canvas.height;
+    }
+
+    tradeMarkers.forEach(m => {
+        let x = m.x * cw + cw / 2;
+        let y = py(m.y);
+
+        ctx.fillStyle = m.type === "BUY" ? "lime" : "red";
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+/* ---------------------------------------------------
+      TRADE LINES (SL / TP)
+--------------------------------------------------- */
+
+function drawTradeLines() {
+    let highs = candles.map(c => c.h);
+    let lows = candles.map(c => c.l);
+    let max = Math.max(...highs);
+    let min = Math.min(...lows);
+
+    function py(v) {
+        return (max - v) / (max - min) * canvas.height;
+    }
+
+    trades.forEach(t => {
+        ctx.lineWidth = 1;
+
+        // SL
+        ctx.strokeStyle = "red";
+        ctx.beginPath();
+        ctx.moveTo(0, py(t.sl));
+        ctx.lineTo(canvas.width, py(t.sl));
+        ctx.stroke();
+
+        // TP
+        ctx.strokeStyle = "lime";
+        ctx.beginPath();
+        ctx.moveTo(0, py(t.tp));
+        ctx.lineTo(canvas.width, py(t.tp));
+        ctx.stroke();
+    });
+}
+
+/* ---------------------------------------------------
+      TRADE OPEN / CLOSE
+--------------------------------------------------- */
+
+function buy() { openTrade("BUY"); }
+function sell() { openTrade("SELL"); }
+
+function openTrade(type) {
+    const sl = parseFloat(document.getElementById("sl").value);
+    const tp = parseFloat(document.getElementById("tp").value);
+    const volume = parseFloat(document.getElementById("volume").value);
+
+    if (!volume || volume <= 0) return alert("Neplatný objem.");
+
+    const cost = price * volume / LEVERAGE;
+    if (cost > balance) return alert("Nedostatek prostředků (MARGIN).");
+
+    const trade = {
+        id: tradeId++,
+        type,
+        entry: type === "BUY" ? price + SPREAD : price - SPREAD,
+        sl,
+        tp,
+        volume,
+        trailing: null
+    };
+
+    balance -= COMMISSION;
+    trades.push(trade);
+
+    addTradeMarker(type);
+    renderTrades();
+}
+
+/* ---------------------------------------------------
+      P/L CALCULATIONS
+--------------------------------------------------- */
+
+function calculatePnL(trade) {
+    let diff = trade.type === "BUY"
+        ? price - trade.entry
+        : trade.entry - price;
+
+    return Math.round(diff * trade.volume * 100) / 100;
+}
+
+function calculateUnrealized() {
+    return trades.reduce((s, t) => s + calculatePnL(t), 0);
+}
+
+/* ---------------------------------------------------
+      TRAILING STOP
+--------------------------------------------------- */
+
+function updateTrailing(trade) {
+    if (!trade.trailing) return;
+
+    if (trade.type === "BUY") {
+        let newSL = price - trade.trailing;
+        if (newSL > trade.sl) trade.sl = newSL;
+    } else {
+        let newSL = price + trade.trailing;
+        if (newSL < trade.sl) trade.sl = newSL;
+    }
+}
+
+/* ---------------------------------------------------
+      TP/SL CHECK
+--------------------------------------------------- */
+
+function checkAllTrades() {
+    trades.forEach(trade => {
+        updateTrailing(trade);
+
+        if (trade.type === "BUY") {
+            if (price <= trade.sl) closeTrade(trade.id, "SL hit");
+            if (price >= trade.tp) closeTrade(trade.id, "TP hit");
+        }
+
+        if (trade.type === "SELL") {
+            if (price >= trade.sl) closeTrade(trade.id, "SL hit");
+            if (price <= trade.tp) closeTrade(trade.id, "TP hit");
+        }
+    });
+}
+
+/* ---------------------------------------------------
+      CLOSE TRADE
+--------------------------------------------------- */
+
+function closeTrade(id, reason = "Manuální uzavření") {
+    const trade = trades.find(t => t.id === id);
+    if (!trade) return;
+
+    const pnl = calculatePnL(trade);
+    balance += pnl;
+
+if (!window.closedTrades) window.closedTrades = [];
+
+window.closedTrades.push({
+    id: trade.id,
+    type: trade.type,
+    entry: trade.entry,
+    exitPrice: price,
+    volume: trade.volume,
+    pnl,
+    reason
+});
+
+    trades = trades.filter(t => t.id !== id);
+
+    document.getElementById("status").innerText =
+        `Trade #${id} uzavřen | ${reason} | P/L: ${pnl}`;
+
+    renderTrades();
+}
+
+
+
+
+/* ---------------------------------------------------
+      DOM RENDERING
+--------------------------------------------------- */
+
+function renderTrades() {
+    let container = document.getElementById("trades");
+    container.innerHTML = "";
+
+    trades.forEach(trade => {
+        let pnl = calculatePnL(trade);
+
+        let div = document.createElement("div");
+        div.className = "trade-row";
+
+        div.innerHTML = `
+            <strong>${trade.type}</strong> |
+            Entry: ${trade.entry} | SL: ${trade.sl} | TP: ${trade.tp} |
+            P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
+            <button onclick="closeTrade(${trade.id})">Zavřít</button>
+        `;
+
+        container.appendChild(div);
+    });
+
+    updateAccount();
+}
+
+/* ---------------------------------------------------
+      ACCOUNT
+--------------------------------------------------- */
+
+function updateAccount() {
+    let unreal = calculateUnrealized();
+    let total = balance + unreal;
+
+    document.getElementById("balance").innerText = balance.toFixed(2);
+    document.getElementById("unrealized").innerText = unreal.toFixed(2);
+    document.getElementById("total").innerText = total.toFixed(2);
+}
+
+/* ---------------------------------------------------
+      COST CALCULATION
+--------------------------------------------------- */
+
+function calculateCost() {
+    const volume = parseFloat(document.getElementById("volume").value);
+    if (!volume) return;
+    document.getElementById("cost").innerText = (price * volume).toFixed(2);
+}
+
+
+/* ---------------------------------------------------
+      SAVE
+--------------------------------------------------- */
+
+function exportData() {
+
+    // Oddělené sekce do TXT
+    let text = "=== TRADING GAME EXPORT ===\n";
+    text += `Export created: ${new Date().toLocaleString()}\n\n`;
+
+    /* ----------------------------------------
+       1) Aktuální cena
+    ---------------------------------------- */
+    text += "=== CURRENT PRICE ===\n";
+    text += `Price: ${price}\n\n`;
+
+    /* ----------------------------------------
+       2) Otevřené obchody
+    ---------------------------------------- */
+    text += "=== OPEN TRADES ===\n";
+    if (trades.length === 0) {
+        text += "No open trades.\n";
+    } else {
+        trades.forEach(t => {
+            text += `ID: ${t.id}\n`;
+            text += `Type: ${t.type}\n`;
+            text += `Entry: ${t.entry}\n`;
+            text += `SL: ${t.sl}\n`;
+            text += `TP: ${t.tp}\n`;
+            text += `Volume: ${t.volume}\n`;
+            text += `P/L: ${calculatePnL(t)}\n`;
+            text += "-----------------------\n";
+        });
+    }
+    text += "\n";
+
+    /* ----------------------------------------
+       3) Uzavřené obchody (pokud chceš)
+       — pokud je chceš ukládat, přidám closedTrades[]
+    ---------------------------------------- */
+    if (window.closedTrades) {
+        text += "=== CLOSED TRADES ===\n";
+        if (window.closedTrades.length === 0) {
+            text += "No closed trades.\n";
+        } else {
+            window.closedTrades.forEach(t => {
+                text += `ID: ${t.id}\n`;
+                text += `Type: ${t.type}\n`;
+                text += `Entry: ${t.entry}\n`;
+                text += `Exit: ${t.exitPrice}\n`;
+                text += `Volume: ${t.volume}\n`;
+                text += `P/L: ${t.pnl}\n`;
+                text += `Reason: ${t.reason}\n`;
+                text += "-----------------------\n";
+            });
+        }
+        text += "\n";
+    }
+
+    /* ----------------------------------------
+       4) candles (svíčky)
+    ---------------------------------------- */
+    text += "=== LAST 50 CANDLES (OHLC) ===\n";
+
+    candles.forEach((c, i) => {
+        text += `${i}. O:${c.o} H:${c.h} L:${c.l} C:${c.c}\n`;
+    });
+
+    /* ----------------------------------------
+       Stáhnutí souboru textu
+    ---------------------------------------- */
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+
+    let dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `trading_export_${dateStr}.txt`;
+
+    a.click();
+    URL.revokeObjectURL(url);
+	localStorage.setItem("lastExport", text);
+}
+
+/* ---------------------------------------------------
+      IMPORT
+--------------------------------------------------- */
+function parseImportedData(text) {
+
+    // Reset
+    trades = [];
+    candles = [];
+    tradeMarkers = [];
+    window.closedTrades = [];
+
+    // Helper — safe section extractor
+    function getSection(name) {
+        let regex = new RegExp(`=== ${name} ===([\\s\\S]*?)(?===|$)`);
+        let match = text.match(regex);
+        return match ? match[1].trim() : "";
+    }
+
+    /* ----- CURRENT PRICE ----- */
+    let secPrice = getSection("CURRENT PRICE");
+    let priceMatch = secPrice.match(/Price:\s*([0-9.]+)/);
+    if (priceMatch) price = parseFloat(priceMatch[1]);
+
+    /* ----- OPEN TRADES ----- */
+    let secOpen = getSection("OPEN TRADES");
+    if (secOpen) {
+        let blocks = secOpen.split("-----------------------");
+        blocks.forEach(b => {
+            if (b.includes("Type")) {
+                let t = {};
+                t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
+                t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
+                t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
+                t.sl = Number(b.match(/SL:\s*([0-9.]+)/)?.[1]);
+                t.tp = Number(b.match(/TP:\s*([0-9.]+)/)?.[1]);
+                t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.trailing = null;
+
+                if (!isNaN(t.entry)) trades.push(t);
+            }
+        });
+    }
+
+    /* ----- CLOSED TRADES ----- */
+    let secClosed = getSection("CLOSED TRADES");
+    if (secClosed) {
+        let blocks = secClosed.split("-----------------------");
+        blocks.forEach(b => {
+            if (b.includes("Type")) {
+                let t = {};
+                t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
+                t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
+                t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
+                t.exitPrice = Number(b.match(/Exit:\s*([0-9.]+)/)?.[1]);
+                t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.pnl = Number(b.match(/P\/L:\s*([0-9.]+)/)?.[1]);
+                t.reason = b.match(/Reason:\s*(.*)/)?.[1];
+
+                if (!isNaN(t.entry)) window.closedTrades.push(t);
+            }
+        });
+    }
+
+    /* ----- CANDLES ----- */
+    let secCandles = getSection("LAST 50 CANDLES (OHLC)");
+    if (secCandles) {
+        let lines = secCandles.split("\n");
+        lines.forEach(line => {
+            let m = line.match(/[0-9]+\.\s*O:([0-9.]+)\s*H:([0-9.]+)\s*L:([0-9.]+)\s*C:([0-9.]+)/);
+            if (m) {
+                candles.push({
+                    o: parseFloat(m[1]),
+                    h: parseFloat(m[2]),
+                    l: parseFloat(m[3]),
+                    c: parseFloat(m[4])
+                });
+            }
+        });
+    }
+
+    if (candles.length === 0) {
+        candles = [{ o: price, h: price, l: price, c: price }];
+    }
+
+    candleIndex = candles.length - 1;
+
+    // Refresh displays
+    document.getElementById("price").innerText = price;
+    renderTrades();
+    updateAccount();
+    drawChart();
+
+    alert("Data byla úspěšně načtena.");
+}

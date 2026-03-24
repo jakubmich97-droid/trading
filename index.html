@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Trading Game</title>
+  <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+
+<h1>Trading Game</h1>
+
+
+<div>
+  <button onclick="setSpeed(0)">⏸ Pause</button>
+  <button onclick="setSpeed(1000)">▶ Play (1×)</button>
+  <button onclick="setSpeed(2000)">0.5×</button>
+  <button onclick="setSpeed(500)">2×</button>
+  <button onclick="setSpeed(200)">5×</button>
+  <button onclick="setSpeed(100)">10×</button>
+
+  <button onclick="exportData()">📥 Exportovat data</button>
+
+  <input type="file" id="importFile" accept=".txt" style="margin-top:10px;">
+  <button onclick="parseImportedData()">📤 Načíst data</button>
+</div>
+
+
+<p>Cena: <span id="price">100</span></p>
+<div id="chartContainer" style="width:100%; height:500px;">
+    <canvas id="chart"></canvas>
+</div>
+
+
+<input type="number" id="sl" placeholder="Stop Loss">
+<input type="number" id="tp" placeholder="Take Profit">
+<input type="number" id="volume" placeholder="Objem (lot)" step="0.01">
+<input type="number" id="volume" oninput="calculateCost()" ...>
+<p>Cost: <span id="cost">0</span></p>
+
+<br><br>
+
+<button onclick="buy()">BUY</button>
+<button onclick="sell()">SELL</button>
+
+<p id="status"></p>
+
+<h3>Obchody</h3>
+<div id="trades"></div>
+
+<h3>Stav účtu</h3>
+<p>Balance: <span id="balance"></span></p>
+<p>Unrealized: <span id="unrealized"></span></p>
+<p>Total: <span id="total"></span></p>
+
+<script src="script.js"></script>
+</body>
+</html>
