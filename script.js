@@ -8,6 +8,7 @@ window.addEventListener("load", () => {
         parseImportedData(saved, { silent: true });
         console.log("Automaticky načten poslední uložený stav.");
     } else {
+        loadAssetState(currentAsset);
         syncIndicatorCheckboxes();
         updateAccount();
         drawChart();
@@ -34,6 +35,33 @@ const COMMISSION = 0.10;
 const LEVERAGE = 1;
 const STORAGE_KEY = "tradingGameState";
 const AUTOSAVE_INTERVAL = 2000;
+const DIVIDEND_RATE = 0.025;
+
+let currentAsset = "growth";
+let assets = {
+    growth: {
+        name: "GrowthTech",
+        price: 100,
+        velocity: 0,
+        candles: [{ o: 100, h: 100, l: 100, c: 100 }],
+        tick: 0,
+        tradeMarkers: [],
+        volatility: 0.25,
+        damping: 0.92,
+        dividendRate: 0
+    },
+    dividend: {
+        name: "StableDiv",
+        price: 80,
+        velocity: 0,
+        candles: [{ o: 80, h: 80, l: 80, c: 80 }],
+        tick: 0,
+        tradeMarkers: [],
+        volatility: 0.10,
+        damping: 0.96,
+        dividendRate: DIVIDEND_RATE
+    }
+};
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -60,14 +88,58 @@ let candles = [{
 
 let candleIndex = 0;
 let tick = 0;
+let tradeMarkers = [];
+
+function getAssetPrice(assetKey) {
+    if (assetKey === currentAsset) return price;
+    return assets[assetKey]?.price ?? price;
+}
+
+function persistCurrentAssetState() {
+    assets[currentAsset].price = price;
+    assets[currentAsset].velocity = velocity;
+    assets[currentAsset].candles = candles;
+    assets[currentAsset].tick = tick;
+    assets[currentAsset].tradeMarkers = tradeMarkers;
+}
+
+function loadAssetState(assetKey) {
+    const state = assets[assetKey];
+    if (!state) return;
+
+    price = state.price;
+    velocity = state.velocity;
+    candles = state.candles;
+    tick = state.tick;
+    tradeMarkers = state.tradeMarkers;
+    candleIndex = candles.length - 1;
+
+    document.getElementById("price").innerText = price.toFixed(2);
+    const select = document.getElementById("assetSelect");
+    if (select) select.value = assetKey;
+}
+
+function switchAsset(assetKey) {
+    if (!assets[assetKey] || assetKey === currentAsset) return;
+
+    persistCurrentAssetState();
+    currentAsset = assetKey;
+    loadAssetState(assetKey);
+    renderTrades();
+    drawChart();
+    calculateCost();
+    document.getElementById("status").innerText = `Přepnuto na akcii: ${assets[assetKey].name}`;
+    saveGameState();
+}
 
 /* ---------------------------------------------------
       PRICE ENGINE (CREATES OHLC)
 --------------------------------------------------- */
 
 function updatePrice() {
-    let randomFactor = (Math.random() - 0.5) * 0.25;
-    velocity = (velocity + randomFactor) * 0.92;
+    const asset = assets[currentAsset];
+    let randomFactor = (Math.random() - 0.5) * asset.volatility;
+    velocity = (velocity + randomFactor) * asset.damping;
 
     price += velocity;
     price = Math.max(0.01, Math.round(price * 100) / 100);
@@ -97,9 +169,24 @@ function updatePrice() {
             .filter(m => m.x > 0)
             .map(m => ({ ...m, x: m.x - 1 }));
 
+        // dividend payment only for dividend stock and BUY positions
+        if (asset.dividendRate > 0) {
+            const payout = trades
+                .filter(t => t.asset === currentAsset && t.type === "BUY")
+                .reduce((sum, t) => sum + (price * t.volume * asset.dividendRate), 0);
+
+            if (payout > 0) {
+                const roundedPayout = Math.round(payout * 100) / 100;
+                balance += roundedPayout;
+                document.getElementById("status").innerText =
+                    `Dividendy (${asset.name}): +${roundedPayout.toFixed(2)} (${(asset.dividendRate * 100).toFixed(1)} %)`;
+            }
+        }
+
         // SL/TP lines move automatically because we map price→pixel
     }
 
+    persistCurrentAssetState();
     drawChart();
     checkAllTrades();
     renderTrades();
@@ -284,7 +371,7 @@ function drawRSI() {
       TRADE MARKERS (BUY/SELL)
 --------------------------------------------------- */
 
-let tradeMarkers = []; // {x,y,type}
+// tradeMarkers are stored per asset in `assets[assetKey].tradeMarkers`
 
 function addTradeMarker(type) {
     tradeMarkers.push({
@@ -332,7 +419,9 @@ function drawTradeLines() {
         return (max - v) / (max - min) * canvas.height;
     }
 
-    trades.forEach(t => {
+    trades
+    .filter(t => (t.asset || "growth") === currentAsset)
+    .forEach(t => {
         ctx.lineWidth = 1;
 
         // SL
@@ -370,6 +459,7 @@ function openTrade(type) {
 
     const trade = {
         id: tradeId++,
+        asset: currentAsset,
         type,
         entry: type === "BUY" ? price + SPREAD : price - SPREAD,
         sl,
@@ -390,9 +480,10 @@ function openTrade(type) {
 --------------------------------------------------- */
 
 function calculatePnL(trade) {
+    const assetPrice = getAssetPrice(trade.asset || currentAsset);
     let diff = trade.type === "BUY"
-        ? price - trade.entry
-        : trade.entry - price;
+        ? assetPrice - trade.entry
+        : trade.entry - assetPrice;
 
     return Math.round(diff * trade.volume * 100) / 100;
 }
@@ -407,12 +498,13 @@ function calculateUnrealized() {
 
 function updateTrailing(trade) {
     if (!trade.trailing) return;
+    const assetPrice = getAssetPrice(trade.asset || currentAsset);
 
     if (trade.type === "BUY") {
-        let newSL = price - trade.trailing;
+        let newSL = assetPrice - trade.trailing;
         if (newSL > trade.sl) trade.sl = newSL;
     } else {
-        let newSL = price + trade.trailing;
+        let newSL = assetPrice + trade.trailing;
         if (newSL < trade.sl) trade.sl = newSL;
     }
 }
@@ -422,17 +514,18 @@ function updateTrailing(trade) {
 --------------------------------------------------- */
 
 function checkAllTrades() {
-    trades.forEach(trade => {
+    [...trades].forEach(trade => {
+        const assetPrice = getAssetPrice(trade.asset || currentAsset);
         updateTrailing(trade);
 
         if (trade.type === "BUY") {
-            if (price <= trade.sl) closeTrade(trade.id, "SL hit");
-            if (price >= trade.tp) closeTrade(trade.id, "TP hit");
+            if (assetPrice <= trade.sl) closeTrade(trade.id, "SL hit");
+            if (assetPrice >= trade.tp) closeTrade(trade.id, "TP hit");
         }
 
         if (trade.type === "SELL") {
-            if (price >= trade.sl) closeTrade(trade.id, "SL hit");
-            if (price <= trade.tp) closeTrade(trade.id, "TP hit");
+            if (assetPrice >= trade.sl) closeTrade(trade.id, "SL hit");
+            if (assetPrice <= trade.tp) closeTrade(trade.id, "TP hit");
         }
     });
 }
@@ -452,9 +545,10 @@ if (!window.closedTrades) window.closedTrades = [];
 
 window.closedTrades.push({
     id: trade.id,
+    asset: trade.asset,
     type: trade.type,
     entry: trade.entry,
-    exitPrice: price,
+    exitPrice: getAssetPrice(trade.asset || currentAsset),
     volume: trade.volume,
     pnl,
     reason
@@ -479,14 +573,16 @@ function renderTrades() {
     let container = document.getElementById("trades");
     container.innerHTML = "";
 
-    trades.forEach(trade => {
+    trades
+    .filter(trade => (trade.asset || "growth") === currentAsset)
+    .forEach(trade => {
         let pnl = calculatePnL(trade);
 
         let div = document.createElement("div");
         div.className = "trade-row";
 
         div.innerHTML = `
-            <strong>${trade.type}</strong> |
+            <strong>${trade.type}</strong> (${assets[trade.asset || "growth"]?.name || trade.asset}) |
             Entry: ${trade.entry} | SL: ${trade.sl} | TP: ${trade.tp} |
             P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
             <button onclick="closeTrade(${trade.id})">Zavřít</button>
@@ -544,18 +640,31 @@ function exportData() {
 }
 
 function buildSaveText() {
+    persistCurrentAssetState();
     // Oddělené sekce do TXT
     let text = "=== TRADING GAME EXPORT ===\n";
     text += `Export created: ${new Date().toLocaleString()}\n\n`;
 
     /* ----------------------------------------
-       1) Aktuální cena
+       1) Aktivní akcie
+    ---------------------------------------- */
+    text += "=== ACTIVE ASSET ===\n";
+    text += `Asset: ${currentAsset}\n\n`;
+
+    /* ----------------------------------------
+       2) Stav akcií
+    ---------------------------------------- */
+    text += "=== ASSET STATES ===\n";
+    text += `${JSON.stringify(assets)}\n\n`;
+
+    /* ----------------------------------------
+       3) Aktuální cena
     ---------------------------------------- */
     text += "=== CURRENT PRICE ===\n";
     text += `Price: ${price}\n\n`;
 
     /* ----------------------------------------
-       2) Zobrazení indikátorů
+       4) Zobrazení indikátorů
     ---------------------------------------- */
     text += "=== DISPLAY SETTINGS ===\n";
     text += `EMA20: ${displaySettings.ema20}\n`;
@@ -563,14 +672,14 @@ function buildSaveText() {
     text += `RSI: ${displaySettings.rsi}\n\n`;
 
     /* ----------------------------------------
-       3) Stav účtu
+       5) Stav účtu
     ---------------------------------------- */
     text += "=== ACCOUNT ===\n";
     text += `Balance: ${balance}\n`;
     text += `NextTradeId: ${tradeId}\n\n`;
 
     /* ----------------------------------------
-       4) Otevřené obchody
+       6) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -578,6 +687,7 @@ function buildSaveText() {
     } else {
         trades.forEach(t => {
             text += `ID: ${t.id}\n`;
+            text += `Asset: ${t.asset || "growth"}\n`;
             text += `Type: ${t.type}\n`;
             text += `Entry: ${t.entry}\n`;
             text += `SL: ${t.sl}\n`;
@@ -590,7 +700,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       5) Uzavřené obchody
+       7) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -599,6 +709,7 @@ function buildSaveText() {
         } else {
             window.closedTrades.forEach(t => {
                 text += `ID: ${t.id}\n`;
+                text += `Asset: ${t.asset || "growth"}\n`;
                 text += `Type: ${t.type}\n`;
                 text += `Entry: ${t.entry}\n`;
                 text += `Exit: ${t.exitPrice}\n`;
@@ -612,7 +723,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       6) candles (svíčky)
+       8) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 50 CANDLES (OHLC) ===\n";
 
@@ -659,6 +770,24 @@ function parseImportedData(text, options = {}) {
         return match ? match[1].trim() : "";
     }
 
+    /* ----- ACTIVE ASSET ----- */
+    let secActiveAsset = getSection("ACTIVE ASSET");
+    let activeAssetMatch = secActiveAsset.match(/Asset:\s*(growth|dividend)/);
+    if (activeAssetMatch) currentAsset = activeAssetMatch[1];
+
+    /* ----- ASSET STATES ----- */
+    let secAssetStates = getSection("ASSET STATES");
+    if (secAssetStates) {
+        try {
+            const parsedAssets = JSON.parse(secAssetStates);
+            if (parsedAssets?.growth && parsedAssets?.dividend) {
+                assets = parsedAssets;
+            }
+        } catch {
+            // fallback to legacy format
+        }
+    }
+
     /* ----- CURRENT PRICE ----- */
     let secPrice = getSection("CURRENT PRICE");
     let priceMatch = secPrice.match(/Price:\s*([0-9.]+)/);
@@ -694,6 +823,7 @@ function parseImportedData(text, options = {}) {
             if (b.includes("Type")) {
                 let t = {};
                 t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
+                t.asset = b.match(/Asset:\s*(growth|dividend)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.sl = Number(b.match(/SL:\s*([0-9.]+)/)?.[1]);
@@ -714,6 +844,7 @@ function parseImportedData(text, options = {}) {
             if (b.includes("Type")) {
                 let t = {};
                 t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
+                t.asset = b.match(/Asset:\s*(growth|dividend)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.exitPrice = Number(b.match(/Exit:\s*([0-9.]+)/)?.[1]);
@@ -750,6 +881,8 @@ function parseImportedData(text, options = {}) {
     candleIndex = candles.length - 1;
     tick = 0;
     velocity = 0;
+    persistCurrentAssetState();
+    loadAssetState(currentAsset);
 
     // Refresh displays
     document.getElementById("price").innerText = price;
@@ -766,15 +899,41 @@ function newGame() {
     const shouldReset = confirm("Opravdu chceš spustit novou hru? Současný stav se vymaže.");
     if (!shouldReset) return;
 
-    price = 100;
-    velocity = 0;
+    currentAsset = "growth";
+    assets = {
+        growth: {
+            name: "GrowthTech",
+            price: 100,
+            velocity: 0,
+            candles: [{ o: 100, h: 100, l: 100, c: 100 }],
+            tick: 0,
+            tradeMarkers: [],
+            volatility: 0.25,
+            damping: 0.92,
+            dividendRate: 0
+        },
+        dividend: {
+            name: "StableDiv",
+            price: 80,
+            velocity: 0,
+            candles: [{ o: 80, h: 80, l: 80, c: 80 }],
+            tick: 0,
+            tradeMarkers: [],
+            volatility: 0.10,
+            damping: 0.96,
+            dividendRate: DIVIDEND_RATE
+        }
+    };
+
+    price = assets.growth.price;
+    velocity = assets.growth.velocity;
     trades = [];
     balance = 1000;
     tradeId = 1;
-    candles = [{ o: 100, h: 100, l: 100, c: 100 }];
+    candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
-    tradeMarkers = [];
+    tradeMarkers = assets.growth.tradeMarkers;
     window.closedTrades = [];
     displaySettings = {
         ema20: true,
@@ -790,6 +949,8 @@ function newGame() {
     document.getElementById("cost").innerText = "0";
     document.getElementById("trades").innerHTML = "";
     syncIndicatorCheckboxes();
+    const select = document.getElementById("assetSelect");
+    if (select) select.value = currentAsset;
 
     localStorage.removeItem(STORAGE_KEY);
     renderTrades();

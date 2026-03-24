@@ -47,7 +47,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
     border-radius: 10px;
     border: 1px solid #cbd5e1;
     font-size: 14px;
@@ -82,7 +83,8 @@ button.danger {
 }
 
 input[type="number"],
-input[type="file"] {
+input[type="file"],
+select {
     padding: 8px 10px;
     background: #fff;
     color: #111827;

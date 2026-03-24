@@ -26,6 +26,11 @@
 
     <div class="toolbar">
       <button onclick="exportData()">📥 Exportovat data</button>
+      <label for="assetSelect"><strong>Akcie:</strong></label>
+      <select id="assetSelect" onchange="switchAsset(this.value)">
+        <option value="growth">GrowthTech (volatilní)</option>
+        <option value="dividend">StableDiv (dividendová)</option>
+      </select>
       <input type="file" id="importFile" accept=".txt">
       <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
     </div>
