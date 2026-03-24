@@ -7,58 +7,74 @@
 
 </head>
 <body>
+<main class="app">
+  <header class="app-header">
+    <h1>Trading Game</h1>
+    <p class="subtitle">Jednoduchý simulátor obchodování se svíčkovým grafem</p>
+  </header>
 
-<h1>Trading Game</h1>
+  <section class="card controls-card">
+    <div class="toolbar">
+      <button onclick="setSpeed(0)">⏸ Pause</button>
+      <button onclick="setSpeed(1000)">▶ Play (1×)</button>
+      <button onclick="setSpeed(2000)">0.5×</button>
+      <button onclick="setSpeed(500)">2×</button>
+      <button onclick="setSpeed(200)">5×</button>
+      <button onclick="setSpeed(100)">10×</button>
+      <button class="danger" onclick="newGame()">🆕 Nová hra</button>
+    </div>
 
+    <div class="toolbar">
+      <button onclick="exportData()">📥 Exportovat data</button>
+      <input type="file" id="importFile" accept=".txt">
+      <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
+    </div>
+  </section>
 
-<div>
-  <button onclick="setSpeed(0)">⏸ Pause</button>
-  <button onclick="setSpeed(1000)">▶ Play (1×)</button>
-  <button onclick="setSpeed(2000)">0.5×</button>
-  <button onclick="setSpeed(500)">2×</button>
-  <button onclick="setSpeed(200)">5×</button>
-  <button onclick="setSpeed(100)">10×</button>
-  <button onclick="newGame()">🆕 Nová hra</button>
+  <section class="card indicator-card">
+    <strong>Indikátory:</strong>
+    <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
+    <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
+    <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
+  </section>
 
-  <button onclick="exportData()">📥 Exportovat data</button>
+  <section class="card chart-card">
+    <p class="price-line">Cena: <span id="price">100</span></p>
+    <div id="chartContainer" style="width:100%; height:500px;">
+        <canvas id="chart"></canvas>
+    </div>
+  </section>
 
-  <input type="file" id="importFile" accept=".txt" style="margin-top:10px;">
-  <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
-</div>
+  <section class="card trade-card">
+    <div class="input-grid">
+      <input type="number" id="sl" placeholder="Stop Loss">
+      <input type="number" id="tp" placeholder="Take Profit">
+      <input type="number" id="volume" placeholder="Objem (lot)" step="0.01">
+    </div>
+    <p class="cost-line">Cost: <span id="cost">0</span></p>
 
-<div style="margin-top:10px;">
-  <strong>Indikátory:</strong>
-  <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
-  <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
-  <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
-</div>
+    <div class="toolbar">
+      <button class="buy-btn" onclick="buy()">BUY</button>
+      <button class="sell-btn" onclick="sell()">SELL</button>
+    </div>
 
+    <p id="status" class="status"></p>
+  </section>
 
-<p>Cena: <span id="price">100</span></p>
-<div id="chartContainer" style="width:100%; height:500px;">
-    <canvas id="chart"></canvas>
-</div>
+  <section class="card info-card">
+    <div>
+      <h3>Obchody</h3>
+      <div id="trades"></div>
+    </div>
 
-
-<input type="number" id="sl" placeholder="Stop Loss">
-<input type="number" id="tp" placeholder="Take Profit">
-<input type="number" id="volume" placeholder="Objem (lot)" step="0.01">
-<p>Cost: <span id="cost">0</span></p>
-
-<br><br>
-
-<button onclick="buy()">BUY</button>
-<button onclick="sell()">SELL</button>
-
-<p id="status"></p>
-
-<h3>Obchody</h3>
-<div id="trades"></div>
-
-<h3>Stav účtu</h3>
-<p>Balance: <span id="balance"></span></p>
-<p>Unrealized: <span id="unrealized"></span></p>
-<p>Total: <span id="total"></span></p>
+    <div>
+      <h3>Stav účtu</h3>
+      <p>Balance: <span id="balance"></span></p>
+      <p>Unrealized: <span id="unrealized"></span></p>
+      <p>Total: <span id="total"></span></p>
+    </div>
+  </section>
+</main>
 
 <script src="script.js"></script>
 </body>
