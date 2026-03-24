@@ -26,6 +26,13 @@
   <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
 </div>
 
+<div style="margin-top:10px;">
+  <strong>Indikátory:</strong>
+  <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
+  <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
+  <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
+</div>
+
 
 <p>Cena: <span id="price">100</span></p>
 <div id="chartContainer" style="width:100%; height:500px;">

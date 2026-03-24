@@ -8,6 +8,7 @@ window.addEventListener("load", () => {
         parseImportedData(saved, { silent: true });
         console.log("Automaticky načten poslední uložený stav.");
     } else {
+        syncIndicatorCheckboxes();
         updateAccount();
         drawChart();
     }
@@ -22,6 +23,11 @@ let velocity = 0;
 let trades = [];
 let balance = 1000;
 let tradeId = 1;
+let displaySettings = {
+    ema20: true,
+    ema50: true,
+    rsi: true
+};
 
 const SPREAD = 0.02;
 const COMMISSION = 0.10;
@@ -119,7 +125,7 @@ function drawChart() {
 
     drawCandles();
     drawIndicators();
-    drawRSI();
+    if (displaySettings.rsi) drawRSI();
     drawTradeLines();
     drawTradeMarkers();
 }
@@ -183,11 +189,15 @@ function EMA(values, period) {
 function drawIndicators() {
     let closes = candles.map(c => c.c);
 
-    let ema20 = EMA(closes, 20);
-    let ema50 = EMA(closes, 50);
+    if (displaySettings.ema20) {
+        let ema20 = EMA(closes, 20);
+        drawIndicatorLine(ema20, "orange");
+    }
 
-    drawIndicatorLine(ema20, "orange");
-    drawIndicatorLine(ema50, "purple");
+    if (displaySettings.ema50) {
+        let ema50 = EMA(closes, 50);
+        drawIndicatorLine(ema50, "purple");
+    }
 }
 
 function drawIndicatorLine(values, color) {
@@ -545,14 +555,22 @@ function buildSaveText() {
     text += `Price: ${price}\n\n`;
 
     /* ----------------------------------------
-       2) Stav účtu
+       2) Zobrazení indikátorů
+    ---------------------------------------- */
+    text += "=== DISPLAY SETTINGS ===\n";
+    text += `EMA20: ${displaySettings.ema20}\n`;
+    text += `EMA50: ${displaySettings.ema50}\n`;
+    text += `RSI: ${displaySettings.rsi}\n\n`;
+
+    /* ----------------------------------------
+       3) Stav účtu
     ---------------------------------------- */
     text += "=== ACCOUNT ===\n";
     text += `Balance: ${balance}\n`;
     text += `NextTradeId: ${tradeId}\n\n`;
 
     /* ----------------------------------------
-       3) Otevřené obchody
+       4) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -572,7 +590,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       4) Uzavřené obchody
+       5) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -594,7 +612,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       5) candles (svíčky)
+       6) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 50 CANDLES (OHLC) ===\n";
 
@@ -645,6 +663,18 @@ function parseImportedData(text, options = {}) {
     let secPrice = getSection("CURRENT PRICE");
     let priceMatch = secPrice.match(/Price:\s*([0-9.]+)/);
     if (priceMatch) price = parseFloat(priceMatch[1]);
+
+    /* ----- DISPLAY SETTINGS ----- */
+    let secDisplaySettings = getSection("DISPLAY SETTINGS");
+    if (secDisplaySettings) {
+        let ema20Match = secDisplaySettings.match(/EMA20:\s*(true|false)/i);
+        let ema50Match = secDisplaySettings.match(/EMA50:\s*(true|false)/i);
+        let rsiMatch = secDisplaySettings.match(/RSI:\s*(true|false)/i);
+
+        if (ema20Match) displaySettings.ema20 = ema20Match[1].toLowerCase() === "true";
+        if (ema50Match) displaySettings.ema50 = ema50Match[1].toLowerCase() === "true";
+        if (rsiMatch) displaySettings.rsi = rsiMatch[1].toLowerCase() === "true";
+    }
 
     /* ----- ACCOUNT ----- */
     let secAccount = getSection("ACCOUNT");
@@ -723,6 +753,7 @@ function parseImportedData(text, options = {}) {
 
     // Refresh displays
     document.getElementById("price").innerText = price;
+    syncIndicatorCheckboxes();
     renderTrades();
     updateAccount();
     drawChart();
@@ -745,6 +776,11 @@ function newGame() {
     tick = 0;
     tradeMarkers = [];
     window.closedTrades = [];
+    displaySettings = {
+        ema20: true,
+        ema50: true,
+        rsi: true
+    };
 
     document.getElementById("price").innerText = price;
     document.getElementById("status").innerText = "Nová hra spuštěna.";
@@ -753,9 +789,29 @@ function newGame() {
     document.getElementById("volume").value = "";
     document.getElementById("cost").innerText = "0";
     document.getElementById("trades").innerHTML = "";
+    syncIndicatorCheckboxes();
 
     localStorage.removeItem(STORAGE_KEY);
     renderTrades();
     updateAccount();
     drawChart();
+}
+
+function syncIndicatorCheckboxes() {
+    const ema20 = document.getElementById("toggleEma20");
+    const ema50 = document.getElementById("toggleEma50");
+    const rsi = document.getElementById("toggleRsi");
+
+    if (ema20) ema20.checked = displaySettings.ema20;
+    if (ema50) ema50.checked = displaySettings.ema50;
+    if (rsi) rsi.checked = displaySettings.rsi;
+}
+
+function setIndicatorVisibility() {
+    displaySettings.ema20 = document.getElementById("toggleEma20")?.checked ?? true;
+    displaySettings.ema50 = document.getElementById("toggleEma50")?.checked ?? true;
+    displaySettings.rsi = document.getElementById("toggleRsi")?.checked ?? true;
+
+    drawChart();
+    saveGameState();
 }
