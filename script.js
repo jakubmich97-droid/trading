@@ -10,6 +10,7 @@ window.addEventListener("load", () => {
     } else {
         loadAssetState(currentAsset);
         syncIndicatorCheckboxes();
+        renderAssetsSidebar();
         renderTrades();
         renderDividendHistory();
         updateAccount();
@@ -130,6 +131,7 @@ function switchAsset(assetKey) {
     renderTrades();
     drawChart();
     calculateCost();
+    renderAssetsSidebar();
     document.getElementById("status").innerText = `Přepnuto na akcii: ${assets[assetKey].name}`;
     saveGameState();
 }
@@ -191,6 +193,7 @@ function updatePrice() {
     });
 
     loadAssetState(currentAsset);
+    renderAssetsSidebar();
     drawChart();
     checkAllTrades();
     renderTrades();
@@ -633,6 +636,28 @@ function renderGlobalOpenPositions() {
     });
 }
 
+function renderAssetsSidebar() {
+    const container = document.getElementById("assetsSidebar");
+    if (!container) return;
+    container.innerHTML = "";
+
+    Object.entries(assets).forEach(([key, asset]) => {
+        const isCurrent = key === currentAsset;
+        const row = document.createElement("div");
+        row.className = "asset-row";
+        row.innerHTML = `
+            <div class="asset-row-head">
+                <strong>${asset.name}</strong>
+                <button onclick="switchAsset('${key}')">${isCurrent ? "Zobrazeno" : "Zobrazit"}</button>
+            </div>
+            <div>Cena: ${Number(asset.price).toFixed(2)}</div>
+            <div>Dividendová: ${asset.dividendRate > 0 ? "Ano" : "Ne"}</div>
+            ${asset.dividendRate > 0 ? `<div>Dividenda: ${(asset.dividendRate * 100).toFixed(2)} % / období</div>` : ""}
+        `;
+        container.appendChild(row);
+    });
+}
+
 function renderDividendHistory() {
     const container = document.getElementById("dividendHistory");
     if (!container) return;
@@ -979,6 +1004,7 @@ function parseImportedData(text, options = {}) {
     updateAccount();
     drawChart();
     calculateCost();
+    renderAssetsSidebar();
     renderDividendHistory();
 
     if (!silent) alert("Data byla úspěšně načtena.");
@@ -1044,6 +1070,7 @@ function newGame() {
 
     localStorage.removeItem(STORAGE_KEY);
     renderTrades();
+    renderAssetsSidebar();
     updateAccount();
     drawChart();
     renderDividendHistory();
