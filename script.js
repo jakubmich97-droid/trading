@@ -10,6 +10,8 @@ window.addEventListener("load", () => {
     } else {
         loadAssetState(currentAsset);
         syncIndicatorCheckboxes();
+        renderTrades();
+        renderDividendHistory();
         updateAccount();
         drawChart();
     }
@@ -24,6 +26,7 @@ let velocity = 0;
 let trades = [];
 let balance = 1000;
 let tradeId = 1;
+let dividendHistory = [];
 let displaySettings = {
     ema20: true,
     ema50: true,
@@ -173,6 +176,13 @@ function updatePrice() {
                 if (payout > 0) {
                     const roundedPayout = Math.round(payout * 100) / 100;
                     balance += roundedPayout;
+                    dividendHistory.unshift({
+                        time: new Date().toLocaleString(),
+                        asset: asset.name,
+                        amount: roundedPayout,
+                        rate: asset.dividendRate,
+                        price: asset.price
+                    });
                     document.getElementById("status").innerText =
                         `Dividendy (${asset.name}): +${roundedPayout.toFixed(2)} (${(asset.dividendRate * 100).toFixed(1)} %)`;
                 }
@@ -586,6 +596,7 @@ function renderTrades() {
     });
 
     renderGlobalOpenPositions();
+    renderDividendHistory();
     updateAccount();
 }
 
@@ -608,6 +619,28 @@ function renderGlobalOpenPositions() {
             ${trade.type} | Entry: ${trade.entry} |
             P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
             <button onclick="closeTrade(${trade.id})">Zavřít</button>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function renderDividendHistory() {
+    const container = document.getElementById("dividendHistory");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (dividendHistory.length === 0) {
+        container.innerHTML = "<div class='trade-row'>Zatím bez dividend.</div>";
+        return;
+    }
+
+    dividendHistory.slice(0, 200).forEach(d => {
+        const row = document.createElement("div");
+        row.className = "dividend-row";
+        row.innerHTML = `
+            <div><strong>${d.asset}</strong> +${Number(d.amount).toFixed(2)}</div>
+            <div>Sazba: ${(Number(d.rate) * 100).toFixed(1)} % | Cena: ${Number(d.price).toFixed(2)}</div>
+            <div class="dividend-time">${d.time}</div>
         `;
         container.appendChild(row);
     });
@@ -698,7 +731,13 @@ function buildSaveText() {
     text += `NextTradeId: ${tradeId}\n\n`;
 
     /* ----------------------------------------
-       6) Otevřené obchody
+       6) Dividendy
+    ---------------------------------------- */
+    text += "=== DIVIDEND HISTORY ===\n";
+    text += `${JSON.stringify(dividendHistory)}\n\n`;
+
+    /* ----------------------------------------
+       7) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -719,7 +758,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       7) Uzavřené obchody
+       8) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -742,7 +781,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       8) candles (svíčky)
+       9) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 50 CANDLES (OHLC) ===\n";
 
@@ -780,6 +819,7 @@ function parseImportedData(text, options = {}) {
     trades = [];
     candles = [];
     tradeMarkers = [];
+    dividendHistory = [];
     window.closedTrades = [];
 
     // Helper — safe section extractor
@@ -832,6 +872,19 @@ function parseImportedData(text, options = {}) {
 
         let tradeIdMatch = secAccount.match(/NextTradeId:\s*([0-9]+)/);
         if (tradeIdMatch) tradeId = Number(tradeIdMatch[1]);
+    }
+
+    /* ----- DIVIDEND HISTORY ----- */
+    let secDivHistory = getSection("DIVIDEND HISTORY");
+    if (secDivHistory) {
+        try {
+            const parsedHistory = JSON.parse(secDivHistory);
+            if (Array.isArray(parsedHistory)) {
+                dividendHistory = parsedHistory;
+            }
+        } catch {
+            dividendHistory = [];
+        }
     }
 
     /* ----- OPEN TRADES ----- */
@@ -910,6 +963,7 @@ function parseImportedData(text, options = {}) {
     updateAccount();
     drawChart();
     calculateCost();
+    renderDividendHistory();
 
     if (!silent) alert("Data byla úspěšně načtena.");
 }
@@ -949,6 +1003,7 @@ function newGame() {
     trades = [];
     balance = 1000;
     tradeId = 1;
+    dividendHistory = [];
     candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
@@ -975,6 +1030,7 @@ function newGame() {
     renderTrades();
     updateAccount();
     drawChart();
+    renderDividendHistory();
 }
 
 function syncIndicatorCheckboxes() {
