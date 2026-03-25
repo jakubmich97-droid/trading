@@ -91,7 +91,6 @@ let tick = 0;
 let tradeMarkers = [];
 
 function getAssetPrice(assetKey) {
-    if (assetKey === currentAsset) return price;
     return assets[assetKey]?.price ?? price;
 }
 
@@ -137,56 +136,51 @@ function switchAsset(assetKey) {
 --------------------------------------------------- */
 
 function updatePrice() {
-    const asset = assets[currentAsset];
-    let randomFactor = (Math.random() - 0.5) * asset.volatility;
-    velocity = (velocity + randomFactor) * asset.damping;
+    persistCurrentAssetState();
 
-    price += velocity;
-    price = Math.max(0.01, Math.round(price * 100) / 100);
+    Object.entries(assets).forEach(([assetKey, asset]) => {
+        let randomFactor = (Math.random() - 0.5) * asset.volatility;
+        asset.velocity = (asset.velocity + randomFactor) * asset.damping;
 
-    document.getElementById("price").innerText = price;
+        asset.price += asset.velocity;
+        asset.price = Math.max(0.01, Math.round(asset.price * 100) / 100);
 
-    tick++;
+        asset.tick++;
 
-    // update current candle
-    let c = candles[candles.length - 1];
-    c.h = Math.max(c.h, price);
-    c.l = Math.min(c.l, price);
-    c.c = price;
+        let c = asset.candles[asset.candles.length - 1];
+        c.h = Math.max(c.h, asset.price);
+        c.l = Math.min(c.l, asset.price);
+        c.c = asset.price;
 
-    // new candle every 6 ticks
-    if (tick >= 6) {
-        candleIndex++;
-        candles.push({ o: price, h: price, l: price, c: price });
+        if (asset.tick >= 6) {
+            asset.candles.push({ o: asset.price, h: asset.price, l: asset.price, c: asset.price });
 
-        if (candles.length > 50)
-            candles.splice(0, candles.length - 50);
+            if (asset.candles.length > 50) {
+                asset.candles.splice(0, asset.candles.length - 50);
+            }
 
-        tick = 0;
+            asset.tick = 0;
+            asset.tradeMarkers = asset.tradeMarkers
+                .filter(m => m.x > 0)
+                .map(m => ({ ...m, x: m.x - 1 }));
 
-        // shift trade markers
-        tradeMarkers = tradeMarkers
-            .filter(m => m.x > 0)
-            .map(m => ({ ...m, x: m.x - 1 }));
+            // dividend payment now runs for dividend asset even when it is not currently displayed
+            if (asset.dividendRate > 0) {
+                const payout = trades
+                    .filter(t => t.asset === assetKey && t.type === "BUY")
+                    .reduce((sum, t) => sum + (asset.price * t.volume * asset.dividendRate), 0);
 
-        // dividend payment only for dividend stock and BUY positions
-        if (asset.dividendRate > 0) {
-            const payout = trades
-                .filter(t => t.asset === currentAsset && t.type === "BUY")
-                .reduce((sum, t) => sum + (price * t.volume * asset.dividendRate), 0);
-
-            if (payout > 0) {
-                const roundedPayout = Math.round(payout * 100) / 100;
-                balance += roundedPayout;
-                document.getElementById("status").innerText =
-                    `Dividendy (${asset.name}): +${roundedPayout.toFixed(2)} (${(asset.dividendRate * 100).toFixed(1)} %)`;
+                if (payout > 0) {
+                    const roundedPayout = Math.round(payout * 100) / 100;
+                    balance += roundedPayout;
+                    document.getElementById("status").innerText =
+                        `Dividendy (${asset.name}): +${roundedPayout.toFixed(2)} (${(asset.dividendRate * 100).toFixed(1)} %)`;
+                }
             }
         }
+    });
 
-        // SL/TP lines move automatically because we map price→pixel
-    }
-
-    persistCurrentAssetState();
+    loadAssetState(currentAsset);
     drawChart();
     checkAllTrades();
     renderTrades();
@@ -591,7 +585,32 @@ function renderTrades() {
         container.appendChild(div);
     });
 
+    renderGlobalOpenPositions();
     updateAccount();
+}
+
+function renderGlobalOpenPositions() {
+    const container = document.getElementById("globalOpenPositions");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (trades.length === 0) {
+        container.innerHTML = "<div class='trade-row'>Žádné otevřené pozice.</div>";
+        return;
+    }
+
+    trades.forEach(trade => {
+        const pnl = calculatePnL(trade);
+        const row = document.createElement("div");
+        row.className = "trade-row";
+        row.innerHTML = `
+            <strong>${assets[trade.asset || "growth"]?.name || trade.asset}</strong> |
+            ${trade.type} | Entry: ${trade.entry} |
+            P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
+            <button onclick="closeTrade(${trade.id})">Zavřít</button>
+        `;
+        container.appendChild(row);
+    });
 }
 
 /* ---------------------------------------------------
