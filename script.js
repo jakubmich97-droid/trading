@@ -24,7 +24,7 @@ let price = 100;
 let velocity = 0;
 
 let trades = [];
-let balance = 1000;
+let balance = 10000;
 let tradeId = 1;
 let dividendHistory = [];
 let displaySettings = {
@@ -34,7 +34,7 @@ let displaySettings = {
 };
 
 const SPREAD = 0.02;
-const COMMISSION = 0.10;
+const COMMISSION = 0;
 const LEVERAGE = 1;
 const STORAGE_KEY = "tradingGameState";
 const AUTOSAVE_INTERVAL = 2000;
@@ -458,20 +458,23 @@ function openTrade(type) {
 
     if (!volume || volume <= 0) return alert("Neplatný objem.");
 
-    const cost = price * volume / LEVERAGE;
-    if (cost > balance) return alert("Nedostatek prostředků (MARGIN).");
+    const entry = type === "BUY" ? price + SPREAD : price - SPREAD;
+    const margin = entry * volume / LEVERAGE;
+    if (margin > balance) return alert("Nedostatek volných prostředků.");
 
     const trade = {
         id: tradeId++,
         asset: currentAsset,
         type,
-        entry: type === "BUY" ? price + SPREAD : price - SPREAD,
+        entry,
         sl,
         tp,
         volume,
+        margin,
         trailing: null
     };
 
+    balance -= margin;
     balance -= COMMISSION;
     trades.push(trade);
 
@@ -494,6 +497,10 @@ function calculatePnL(trade) {
 
 function calculateUnrealized() {
     return trades.reduce((s, t) => s + calculatePnL(t), 0);
+}
+
+function calculateInvestedCapital() {
+    return trades.reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0);
 }
 
 /* ---------------------------------------------------
@@ -543,7 +550,8 @@ function closeTrade(id, reason = "Manuální uzavření") {
     if (!trade) return;
 
     const pnl = calculatePnL(trade);
-    balance += pnl;
+    const margin = trade.margin ?? (trade.entry * trade.volume / LEVERAGE);
+    balance += margin + pnl;
 
 if (!window.closedTrades) window.closedTrades = [];
 
@@ -554,6 +562,7 @@ window.closedTrades.push({
     entry: trade.entry,
     exitPrice: getAssetPrice(trade.asset || currentAsset),
     volume: trade.volume,
+    margin: trade.margin ?? (trade.entry * trade.volume / LEVERAGE),
     pnl,
     reason
 });
@@ -652,9 +661,11 @@ function renderDividendHistory() {
 
 function updateAccount() {
     let unreal = calculateUnrealized();
-    let total = balance + unreal;
+    let invested = calculateInvestedCapital();
+    let total = balance + invested + unreal;
 
     document.getElementById("balance").innerText = balance.toFixed(2);
+    document.getElementById("invested").innerText = invested.toFixed(2);
     document.getElementById("unrealized").innerText = unreal.toFixed(2);
     document.getElementById("total").innerText = total.toFixed(2);
 }
@@ -751,6 +762,7 @@ function buildSaveText() {
             text += `SL: ${t.sl}\n`;
             text += `TP: ${t.tp}\n`;
             text += `Volume: ${t.volume}\n`;
+            text += `Margin: ${t.margin ?? (t.entry * t.volume / LEVERAGE)}\n`;
             text += `P/L: ${calculatePnL(t)}\n`;
             text += "-----------------------\n";
         });
@@ -772,6 +784,7 @@ function buildSaveText() {
                 text += `Entry: ${t.entry}\n`;
                 text += `Exit: ${t.exitPrice}\n`;
                 text += `Volume: ${t.volume}\n`;
+                text += `Margin: ${t.margin ?? (t.entry * t.volume / LEVERAGE)}\n`;
                 text += `P/L: ${t.pnl}\n`;
                 text += `Reason: ${t.reason}\n`;
                 text += "-----------------------\n";
@@ -901,7 +914,9 @@ function parseImportedData(text, options = {}) {
                 t.sl = Number(b.match(/SL:\s*([0-9.]+)/)?.[1]);
                 t.tp = Number(b.match(/TP:\s*([0-9.]+)/)?.[1]);
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
                 t.trailing = null;
+                if (Number.isNaN(t.margin)) t.margin = t.entry * t.volume / LEVERAGE;
 
                 if (!isNaN(t.entry)) trades.push(t);
             }
@@ -921,6 +936,7 @@ function parseImportedData(text, options = {}) {
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.exitPrice = Number(b.match(/Exit:\s*([0-9.]+)/)?.[1]);
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
                 t.pnl = Number(b.match(/P\/L:\s*([0-9.]+)/)?.[1]);
                 t.reason = b.match(/Reason:\s*(.*)/)?.[1];
 
@@ -1001,7 +1017,7 @@ function newGame() {
     price = assets.growth.price;
     velocity = assets.growth.velocity;
     trades = [];
-    balance = 1000;
+    balance = 10000;
     tradeId = 1;
     dividendHistory = [];
     candles = assets.growth.candles;
