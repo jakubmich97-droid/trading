@@ -28,6 +28,7 @@ let trades = [];
 let balance = 10000;
 let tradeId = 1;
 let transactionHistory = [];
+let accountHistory = [];
 let displaySettings = {
     ema20: true,
     ema50: true,
@@ -471,11 +472,18 @@ function sell() { openTrade("SELL"); }
 function openTrade(type) {
     const sl = parseFloat(document.getElementById("sl").value);
     const tp = parseFloat(document.getElementById("tp").value);
-    const volume = parseFloat(document.getElementById("volume").value);
+    let volume = parseFloat(document.getElementById("volume").value);
+    const buyPercent = parseFloat(document.getElementById("buyPercent").value);
+
+    const entry = round2(type === "BUY" ? price + SPREAD : price - SPREAD);
+    if (buyPercent && buyPercent > 0) {
+        const pct = Math.min(Math.max(buyPercent, 0), 100);
+        volume = round2((balance * (pct / 100)) / entry);
+        document.getElementById("volume").value = volume;
+    }
 
     if (!volume || volume <= 0) return alert("Neplatný objem.");
 
-    const entry = round2(type === "BUY" ? price + SPREAD : price - SPREAD);
     const margin = round2(entry * volume / LEVERAGE);
     if (margin > balance) return alert("Nedostatek volných prostředků.");
 
@@ -704,12 +712,25 @@ function renderTransactionHistory() {
 
 function openPortfolio() {
     document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
     drawPortfolioChart();
 }
 
 function closePortfolio() {
     document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+}
+
+function openAccountHistory() {
+    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.remove("hidden");
+    drawAccountHistoryChart();
+}
+
+function closeAccountHistory() {
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
 }
 
@@ -790,6 +811,63 @@ function drawPortfolioChart() {
     }).join("");
 }
 
+function drawAccountHistoryChart() {
+    const canvas = document.getElementById("accountHistoryChart");
+    const legend = document.getElementById("accountHistoryLegend");
+    if (!canvas || !legend) return;
+
+    const ctxLine = canvas.getContext("2d");
+    ctxLine.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (accountHistory.length < 2) {
+        ctxLine.fillStyle = "#cbd5e1";
+        ctxLine.font = "20px Inter, sans-serif";
+        ctxLine.fillText("Málo dat pro vykreslení křivky.", 240, canvas.height / 2);
+        legend.innerHTML = "";
+        return;
+    }
+
+    const values = accountHistory.map(p => p.total);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = 50;
+    const w = canvas.width - padding * 2;
+    const h = canvas.height - padding * 2;
+    const range = Math.max(max - min, 1);
+
+    // axes
+    ctxLine.strokeStyle = "rgba(148, 163, 184, 0.35)";
+    ctxLine.lineWidth = 1;
+    ctxLine.beginPath();
+    ctxLine.moveTo(padding, padding);
+    ctxLine.lineTo(padding, canvas.height - padding);
+    ctxLine.lineTo(canvas.width - padding, canvas.height - padding);
+    ctxLine.stroke();
+
+    // chart line
+    ctxLine.strokeStyle = "#22d3ee";
+    ctxLine.lineWidth = 3;
+    ctxLine.beginPath();
+    accountHistory.forEach((p, i) => {
+        const x = padding + (i / (accountHistory.length - 1)) * w;
+        const y = canvas.height - padding - ((p.total - min) / range) * h;
+        if (i === 0) ctxLine.moveTo(x, y);
+        else ctxLine.lineTo(x, y);
+    });
+    ctxLine.stroke();
+
+    const last = accountHistory[accountHistory.length - 1];
+    const first = accountHistory[0];
+    const delta = round2(last.total - first.total);
+    const deltaColor = delta >= 0 ? "#4ade80" : "#f87171";
+
+    legend.innerHTML = `
+        <div class="legend-row"><span class="legend-dot" style="background:#22d3ee"></span><span>Počáteční hodnota</span><strong>${first.total.toFixed(2)}</strong></div>
+        <div class="legend-row"><span class="legend-dot" style="background:#a78bfa"></span><span>Aktuální hodnota</span><strong>${last.total.toFixed(2)}</strong></div>
+        <div class="legend-row"><span class="legend-dot" style="background:${deltaColor}"></span><span>Změna</span><strong style="color:${deltaColor}">${delta >= 0 ? "+" : ""}${delta.toFixed(2)}</strong></div>
+    `;
+}
+
 /* ---------------------------------------------------
       ACCOUNT
 --------------------------------------------------- */
@@ -803,6 +881,21 @@ function updateAccount() {
     document.getElementById("invested").innerText = invested.toFixed(2);
     document.getElementById("unrealized").innerText = unreal.toFixed(2);
     document.getElementById("total").innerText = total.toFixed(2);
+
+    const last = accountHistory[accountHistory.length - 1];
+    if (!last || Math.abs(last.total - total) > 0.009) {
+        accountHistory.push({
+            time: new Date().toLocaleTimeString(),
+            balance: round2(balance),
+            invested: round2(invested),
+            total: round2(total)
+        });
+        if (accountHistory.length > 2000) accountHistory.shift();
+    }
+
+    if (!document.getElementById("accountHistoryPage")?.classList.contains("hidden")) {
+        drawAccountHistoryChart();
+    }
 }
 
 /* ---------------------------------------------------
@@ -883,7 +976,13 @@ function buildSaveText() {
     text += `${JSON.stringify(transactionHistory)}\n\n`;
 
     /* ----------------------------------------
-       7) Otevřené obchody
+       7) Account history
+    ---------------------------------------- */
+    text += "=== ACCOUNT HISTORY ===\n";
+    text += `${JSON.stringify(accountHistory)}\n\n`;
+
+    /* ----------------------------------------
+       8) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -905,7 +1004,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       8) Uzavřené obchody
+       9) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -929,7 +1028,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       9) candles (svíčky)
+       10) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 50 CANDLES (OHLC) ===\n";
 
@@ -968,6 +1067,7 @@ function parseImportedData(text, options = {}) {
     candles = [];
     tradeMarkers = [];
     transactionHistory = [];
+    accountHistory = [];
     window.closedTrades = [];
 
     // Helper — safe section extractor
@@ -1037,6 +1137,24 @@ function parseImportedData(text, options = {}) {
             }
         } catch {
             transactionHistory = [];
+        }
+    }
+
+    /* ----- ACCOUNT HISTORY ----- */
+    let secAccHistory = getSection("ACCOUNT HISTORY");
+    if (secAccHistory) {
+        try {
+            const parsedAccHistory = JSON.parse(secAccHistory);
+            if (Array.isArray(parsedAccHistory)) {
+                accountHistory = parsedAccHistory.map(p => ({
+                    time: p.time || new Date().toLocaleTimeString(),
+                    balance: round2(p.balance ?? 0),
+                    invested: round2(p.invested ?? 0),
+                    total: round2(p.total ?? 0)
+                }));
+            }
+        } catch {
+            accountHistory = [];
         }
     }
 
@@ -1163,6 +1281,7 @@ function newGame() {
     balance = 10000;
     tradeId = 1;
     transactionHistory = [];
+    accountHistory = [];
     candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
@@ -1179,6 +1298,7 @@ function newGame() {
     document.getElementById("sl").value = "";
     document.getElementById("tp").value = "";
     document.getElementById("volume").value = "";
+    document.getElementById("buyPercent").value = "";
     document.getElementById("cost").innerText = "0";
     document.getElementById("trades").innerHTML = "";
     syncIndicatorCheckboxes();

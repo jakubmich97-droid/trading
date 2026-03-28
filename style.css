@@ -196,7 +196,7 @@ select {
 
 .input-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
     gap: 8px;
 }
 
@@ -330,6 +330,15 @@ select {
     width: min(520px, 90vw);
     height: auto;
     justify-self: center;
+}
+
+#accountHistoryChart {
+    width: min(960px, 95vw);
+    height: auto;
+    justify-self: center;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.55);
 }
 
 .portfolio-legend {

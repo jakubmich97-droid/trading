@@ -33,6 +33,7 @@
       <button onclick="setSpeed(500)">2×</button>
       <button onclick="setSpeed(200)">5×</button>
       <button onclick="openPortfolio()">📊 Portfolio</button>
+      <button onclick="openAccountHistory()">📈 Stav účtu</button>
       <button class="danger" onclick="newGame()">🆕 Nová hra</button>
     </div>
 
@@ -61,7 +62,8 @@
     <div class="input-grid">
       <input type="number" id="sl" placeholder="Stop Loss">
       <input type="number" id="tp" placeholder="Take Profit">
-      <input type="number" id="volume" placeholder="Objem (lot)" step="0.01">
+      <input type="number" id="volume" placeholder="Vol (lot)" step="0.01">
+      <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100">
     </div>
     <p class="cost-line">Cost: <span id="cost">0</span></p>
 
@@ -107,6 +109,17 @@
     </div>
     <canvas id="portfolioChart" width="520" height="520"></canvas>
     <div id="portfolioLegend" class="portfolio-legend"></div>
+  </div>
+</section>
+
+<section id="accountHistoryPage" class="portfolio-page hidden">
+  <div class="card portfolio-card">
+    <div class="portfolio-header">
+      <h2>Stav účtu v čase</h2>
+      <button onclick="closeAccountHistory()">⬅ Zpět do hry</button>
+    </div>
+    <canvas id="accountHistoryChart" width="960" height="500"></canvas>
+    <div id="accountHistoryLegend" class="portfolio-legend"></div>
   </div>
 </section>
 
