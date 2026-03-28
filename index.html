@@ -32,6 +32,7 @@
       <button onclick="setSpeed(1000)">▶ Play (1×)</button>
       <button onclick="setSpeed(500)">2×</button>
       <button onclick="setSpeed(200)">5×</button>
+      <button onclick="openPortfolio()">📊 Portfolio</button>
       <button class="danger" onclick="newGame()">🆕 Nová hra</button>
     </div>
 
@@ -97,6 +98,17 @@
   <div id="transactionHistory"></div>
 </aside>
 </div>
+
+<section id="portfolioPage" class="portfolio-page hidden">
+  <div class="card portfolio-card">
+    <div class="portfolio-header">
+      <h2>Portfolio</h2>
+      <button onclick="closePortfolio()">⬅ Zpět do hry</button>
+    </div>
+    <canvas id="portfolioChart" width="520" height="520"></canvas>
+    <div id="portfolioLegend" class="portfolio-legend"></div>
+  </div>
+</section>
 
 <script src="script.js"></script>
 </body>

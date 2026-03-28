@@ -627,6 +627,9 @@ function renderTrades() {
     renderGlobalOpenPositions();
     renderTransactionHistory();
     updateAccount();
+    if (!document.getElementById("portfolioPage")?.classList.contains("hidden")) {
+        drawPortfolioChart();
+    }
 }
 
 function renderGlobalOpenPositions() {
@@ -697,6 +700,94 @@ function renderTransactionHistory() {
         `;
         container.appendChild(row);
     });
+}
+
+function openPortfolio() {
+    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("portfolioPage")?.classList.remove("hidden");
+    drawPortfolioChart();
+}
+
+function closePortfolio() {
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+}
+
+function drawPortfolioChart() {
+    const canvas = document.getElementById("portfolioChart");
+    const legend = document.getElementById("portfolioLegend");
+    if (!canvas || !legend) return;
+
+    const ctxPie = canvas.getContext("2d");
+    const assetSlices = Object.entries(assets).map(([key, asset]) => ({
+        key,
+        name: asset.name,
+        value: trades
+            .filter(t => t.asset === key)
+            .reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0)
+    }));
+
+    const slices = [
+        { key: "cash", name: "Volné prostředky", value: Math.max(balance, 0), color: "#22d3ee" },
+        ...assetSlices.map((s, i) => ({
+            ...s,
+            color: ["#22c55e", "#a78bfa", "#f59e0b", "#ef4444", "#38bdf8"][i % 5]
+        }))
+    ].filter(s => s.value > 0);
+
+    const total = slices.reduce((sum, s) => sum + s.value, 0);
+    ctxPie.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (total <= 0) {
+        ctxPie.fillStyle = "#cbd5e1";
+        ctxPie.font = "20px Inter, sans-serif";
+        ctxPie.fillText("Žádná data k vykreslení.", 120, canvas.height / 2);
+        legend.innerHTML = "";
+        return;
+    }
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) * 0.35;
+    let start = -Math.PI / 2;
+
+    slices.forEach(slice => {
+        const angle = (slice.value / total) * Math.PI * 2;
+        const end = start + angle;
+
+        ctxPie.beginPath();
+        ctxPie.moveTo(cx, cy);
+        ctxPie.arc(cx, cy, radius, start, end);
+        ctxPie.closePath();
+        ctxPie.fillStyle = slice.color;
+        ctxPie.fill();
+
+        start = end;
+    });
+
+    // inner circle for donut effect
+    ctxPie.beginPath();
+    ctxPie.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+    ctxPie.fillStyle = "#0f172a";
+    ctxPie.fill();
+
+    ctxPie.fillStyle = "#e2e8f0";
+    ctxPie.font = "bold 20px Inter, sans-serif";
+    ctxPie.textAlign = "center";
+    ctxPie.fillText("Portfolio", cx, cy - 8);
+    ctxPie.font = "16px Inter, sans-serif";
+    ctxPie.fillText(total.toFixed(2), cx, cy + 18);
+
+    legend.innerHTML = slices.map(s => {
+        const pct = ((s.value / total) * 100).toFixed(1);
+        return `
+            <div class="legend-row">
+                <span class="legend-dot" style="background:${s.color}"></span>
+                <span>${s.name}</span>
+                <strong>${s.value.toFixed(2)} (${pct} %)</strong>
+            </div>
+        `;
+    }).join("");
 }
 
 /* ---------------------------------------------------
