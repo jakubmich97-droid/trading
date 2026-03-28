@@ -246,12 +246,12 @@ select {
     font-size: 0.78rem;
 }
 
-#dividendHistory {
+#transactionHistory {
     display: grid;
     gap: 8px;
 }
 
-.dividend-row {
+.transaction-row {
     border: 1px solid rgba(16, 185, 129, 0.35);
     background: rgba(6, 44, 32, 0.35);
     border-radius: 10px;
@@ -262,6 +262,16 @@ select {
 .dividend-time {
     color: #93c5fd;
     font-size: 0.8rem;
+}
+
+.tx-income {
+    color: #4ade80;
+    font-weight: 700;
+}
+
+.tx-expense {
+    color: #f87171;
+    font-weight: 700;
 }
 
 @media (max-width: 820px) {
