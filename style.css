@@ -46,6 +46,34 @@ body {
     color: #93c5fd;
 }
 
+.balance-hero {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    background: linear-gradient(145deg, rgba(6, 78, 59, 0.55), rgba(5, 150, 105, 0.25));
+}
+
+.money-icon {
+    width: 64px;
+    height: 64px;
+    filter: drop-shadow(0 0 10px rgba(74, 222, 128, 0.4));
+}
+
+.balance-hero-label {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #bbf7d0;
+}
+
+.balance-hero-value {
+    margin: 2px 0 0;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #dcfce7;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+}
+
 h3 {
     margin-top: 0;
     color: #bae6fd;

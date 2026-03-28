@@ -15,28 +15,28 @@
 
 <main class="app">
   <header class="app-header">
-    <h1>Trading Game</h1>
-    <p class="subtitle">Jednoduchý simulátor obchodování se svíčkovým grafem</p>
+    <h1>Invest Game</h1>
   </header>
+
+  <section class="card balance-hero">
+    <img src="money.svg" alt="Peníze" class="money-icon">
+    <div>
+      <p class="balance-hero-label">Volné prostředky</p>
+      <p class="balance-hero-value"><span id="balance"></span></p>
+    </div>
+  </section>
 
   <section class="card controls-card">
     <div class="toolbar">
       <button onclick="setSpeed(0)">⏸ Pause</button>
       <button onclick="setSpeed(1000)">▶ Play (1×)</button>
-      <button onclick="setSpeed(2000)">0.5×</button>
       <button onclick="setSpeed(500)">2×</button>
       <button onclick="setSpeed(200)">5×</button>
-      <button onclick="setSpeed(100)">10×</button>
       <button class="danger" onclick="newGame()">🆕 Nová hra</button>
     </div>
 
     <div class="toolbar">
       <button onclick="exportData()">📥 Exportovat data</button>
-      <label for="assetSelect"><strong>Akcie:</strong></label>
-      <select id="assetSelect" onchange="switchAsset(this.value)">
-        <option value="growth">GrowthTech (volatilní)</option>
-        <option value="dividend">StableDiv (dividendová)</option>
-      </select>
       <input type="file" id="importFile" accept=".txt">
       <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
     </div>
@@ -85,7 +85,6 @@
 
     <div>
       <h3>Stav účtu</h3>
-      <p>Volné prostředky: <span id="balance"></span></p>
       <p>Investováno: <span id="invested"></span></p>
       <p>Unrealized: <span id="unrealized"></span></p>
       <p>Total: <span id="total"></span></p>
