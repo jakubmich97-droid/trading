@@ -5,8 +5,12 @@
 body {
     margin: 0;
     font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
-    background: linear-gradient(180deg, #f3f6ff 0%, #eef2f9 100%);
-    color: #1f2937;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.18), transparent 32%),
+        radial-gradient(circle at 80% 10%, rgba(139, 92, 246, 0.22), transparent 30%),
+        radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.20), transparent 35%),
+        #050816;
+    color: #dbeafe;
 }
 
 .app {
@@ -30,20 +34,39 @@ body {
 
 .app-header h1 {
     margin: 0;
-    font-size: 2rem;
+    font-size: 2.1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #e0f2fe;
+    text-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
 }
 
 .subtitle {
     margin: 4px 0 0;
-    color: #64748b;
+    color: #93c5fd;
+}
+
+h3 {
+    margin-top: 0;
+    color: #bae6fd;
+    letter-spacing: 0.02em;
+}
+
+label,
+p,
+strong {
+    color: #dbeafe;
 }
 
 .card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: linear-gradient(145deg, rgba(11, 20, 44, 0.85), rgba(20, 30, 58, 0.8));
+    border: 1px solid rgba(56, 189, 248, 0.25);
     border-radius: 14px;
     padding: 14px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    box-shadow:
+        0 0 0 1px rgba(30, 64, 175, 0.2) inset,
+        0 10px 30px rgba(2, 6, 23, 0.55);
+    backdrop-filter: blur(4px);
 }
 
 .toolbar {
@@ -61,20 +84,24 @@ button,
 input,
 select {
     border-radius: 10px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.45);
     font-size: 14px;
 }
 
 button {
-    background: #0f172a;
-    color: #fff;
+    background: linear-gradient(180deg, #0f172a, #111f3d);
+    color: #e2e8f0;
     padding: 8px 12px;
     cursor: pointer;
-    transition: transform 0.06s ease, opacity 0.2s ease;
+    transition: transform 0.06s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25) inset;
 }
 
 button:hover {
-    opacity: 0.93;
+    opacity: 0.98;
+    box-shadow:
+        0 0 0 1px rgba(56, 189, 248, 0.45) inset,
+        0 0 18px rgba(56, 189, 248, 0.25);
 }
 
 button:active {
@@ -82,23 +109,23 @@ button:active {
 }
 
 button.danger {
-    background: #b91c1c;
+    background: linear-gradient(180deg, #dc2626, #7f1d1d);
 }
 
 .buy-btn {
-    background: #15803d;
+    background: linear-gradient(180deg, #22c55e, #166534);
 }
 
 .sell-btn {
-    background: #b91c1c;
+    background: linear-gradient(180deg, #ef4444, #7f1d1d);
 }
 
 input[type="number"],
 input[type="file"],
 select {
     padding: 8px 10px;
-    background: #fff;
-    color: #111827;
+    background: rgba(15, 23, 42, 0.75);
+    color: #e2e8f0;
 }
 
 .indicator-card {
@@ -115,10 +142,24 @@ select {
 }
 
 #chartContainer {
-    border: 1px solid #e5e7eb;
+    position: relative;
+    border: 1px solid rgba(56, 189, 248, 0.35);
     border-radius: 12px;
     overflow: hidden;
-    background: #0b1220;
+    background:
+        linear-gradient(180deg, rgba(3, 7, 18, 0.95), rgba(2, 6, 23, 0.96));
+}
+
+#chartContainer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(30, 41, 59, 0.22) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 41, 59, 0.22) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.55;
 }
 
 .input-grid {
@@ -129,12 +170,12 @@ select {
 
 .cost-line {
     margin: 10px 0;
-    color: #334155;
+    color: #93c5fd;
 }
 
 .status {
     min-height: 22px;
-    color: #0f766e;
+    color: #67e8f9;
     margin-bottom: 0;
 }
 
@@ -185,8 +226,8 @@ select {
 }
 
 .asset-row {
-    border: 1px solid #dbeafe;
-    background: #f8fafc;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(15, 23, 42, 0.65);
     border-radius: 10px;
     padding: 8px 10px;
     display: grid;
@@ -211,15 +252,15 @@ select {
 }
 
 .dividend-row {
-    border: 1px solid #dbeafe;
-    background: #eff6ff;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    background: rgba(6, 44, 32, 0.35);
     border-radius: 10px;
     padding: 8px 10px;
     font-size: 0.92rem;
 }
 
 .dividend-time {
-    color: #64748b;
+    color: #93c5fd;
     font-size: 0.8rem;
 }
 
