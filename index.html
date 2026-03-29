@@ -11,6 +11,7 @@
   <h2>Invest game</h2>
   <button id="navTrading" class="nav-btn active" onclick="openTrading()">📈 Trading</button>
   <button id="navRealEstate" class="nav-btn" onclick="openRealEstate()">🏠 Nemovitosti</button>
+  <button id="navBusiness" class="nav-btn" onclick="openBusiness()">🛒 Business</button>
   <button id="navLoans" class="nav-btn" onclick="openLoans()">💳 Půjčky</button>
   <button id="navPortfolio" class="nav-btn" onclick="openPortfolio()">📊 Portfolio</button>
   <button id="navAccountHistory" class="nav-btn" onclick="openAccountHistory()">📈 Stav účtu</button>
@@ -131,6 +132,16 @@
         </div>
         <div id="loanInfo"></div>
       </div>
+    </div>
+  </section>
+
+  <section id="businessPage" class="portfolio-page hidden">
+    <div class="card portfolio-card">
+      <div class="portfolio-header">
+        <h2>Business</h2>
+        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+      </div>
+      <div id="businessGrid" class="realestate-grid"></div>
     </div>
   </section>
 </main>

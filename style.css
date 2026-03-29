@@ -389,6 +389,7 @@ select {
 }
 
 #realEstatePage,
+#businessPage,
 #loansPage {
     min-height: auto;
     place-items: stretch;
@@ -396,6 +397,7 @@ select {
 }
 
 #realEstatePage .portfolio-card,
+#businessPage .portfolio-card,
 #loansPage .portfolio-card {
     width: 100%;
 }

@@ -14,6 +14,7 @@ window.addEventListener("load", () => {
         renderTrades();
         renderTransactionHistory();
         renderRealEstatePage();
+        renderBusinessPage();
         renderLoansPage();
         updateAccount();
         drawChart();
@@ -148,6 +149,19 @@ let loanState = {
     monthlyPayment: 0,
     remainingInstallments: 0
 };
+let businessState = {
+    shop: {
+        name: "E-shop",
+        value: 200000,
+        owned: 0
+    },
+    goods: {
+        inProgress: false,
+        readyToSell: false,
+        buyPrice: 1000,
+        sellPrice: 1100
+    }
+};
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -238,6 +252,7 @@ function updatePrice() {
     if (monthTick >= DIVIDEND_PERIOD_TICKS) {
         monthTick = 0;
         processRealEstateMonth();
+        processBusinessMonth();
         processLoanMonth();
     }
 
@@ -814,6 +829,64 @@ function processRealEstateMonth() {
     }
 }
 
+function buyBusinessShop() {
+    const shop = businessState.shop;
+    if (shop.value <= 0) return alert("Cena e-shopu zatím není nastavena.");
+    if (balance < shop.value) return alert("Nedostatek volných prostředků.");
+
+    balance = round2(balance - shop.value);
+    shop.owned += 1;
+    addTransaction("Koupeno: E-shop", -shop.value);
+    renderBusinessPage();
+    updateAccount();
+}
+
+function sellBusinessShop() {
+    const shop = businessState.shop;
+    if (shop.owned <= 0) return alert("E-shop aktuálně nevlastníš.");
+    if (businessState.goods.inProgress) return alert("Nejdřív dokonči cyklus zboží nebo ho prodej.");
+
+    shop.owned -= 1;
+    balance = round2(balance + shop.value);
+    addTransaction("Prodáno: E-shop", shop.value);
+    renderBusinessPage();
+    updateAccount();
+}
+
+function buyBusinessGoods() {
+    if (businessState.shop.owned <= 0) return alert("Nejdřív musíš vlastnit e-shop.");
+    if (businessState.goods.inProgress) return alert("Zboží už máš nakoupené. Počkej na další měsíc.");
+    if (balance < businessState.goods.buyPrice) return alert("Nedostatek volných prostředků.");
+
+    balance = round2(balance - businessState.goods.buyPrice);
+    businessState.goods.inProgress = true;
+    businessState.goods.readyToSell = false;
+    addTransaction("Nákup zboží (e-shop)", -businessState.goods.buyPrice);
+    renderBusinessPage();
+    updateAccount();
+}
+
+function sellBusinessGoods() {
+    if (!businessState.goods.inProgress) return alert("Nejdřív nakup zboží.");
+    if (!businessState.goods.readyToSell) return alert("Zboží můžeš prodat až po jednom měsíci.");
+
+    balance = round2(balance + businessState.goods.sellPrice);
+    addTransaction("Prodej zboží (e-shop)", businessState.goods.sellPrice);
+    businessState.goods.inProgress = false;
+    businessState.goods.readyToSell = false;
+    renderBusinessPage();
+    updateAccount();
+}
+
+function processBusinessMonth() {
+    if (businessState.shop.owned > 0 && businessState.goods.inProgress && !businessState.goods.readyToSell) {
+        businessState.goods.readyToSell = true;
+        if (!document.getElementById("businessPage")?.classList.contains("hidden")) {
+            renderBusinessPage();
+        }
+    }
+}
+
 function processLoanMonth() {
     if (!loanState.remainingInstallments || loanState.remainingInstallments <= 0) return;
 
@@ -913,6 +986,36 @@ function renderRealEstatePage() {
     });
 }
 
+function renderBusinessPage() {
+    const grid = document.getElementById("businessGrid");
+    if (!grid) return;
+
+    const shop = businessState.shop;
+    const goods = businessState.goods;
+    grid.innerHTML = "";
+
+    const card = document.createElement("div");
+    card.className = "realestate-card";
+    card.innerHTML = `
+        <h3>${shop.name}</h3>
+        <p>Aktuální hodnota: <strong>${shop.value.toLocaleString("cs-CZ")} Kč</strong></p>
+        <p>Vlastním: <strong>${shop.owned}</strong></p>
+        <p>Zboží: <strong>${goods.inProgress ? (goods.readyToSell ? "Připraveno k prodeji" : "Nakoupeno, čeká na měsíc") : "Žádné"} </strong></p>
+        <p>Nákup zboží: <strong>${goods.buyPrice.toLocaleString("cs-CZ")} Kč</strong> | Prodej: <strong>${goods.sellPrice.toLocaleString("cs-CZ")} Kč</strong></p>
+        <div class="toolbar">
+            <button class="buy-btn" onclick="buyBusinessShop()">Koupit e-shop</button>
+            <button class="sell-btn" onclick="sellBusinessShop()">Prodat e-shop</button>
+        </div>
+        ${shop.owned > 0 ? `
+        <div class="toolbar">
+            <button onclick="buyBusinessGoods()">Nakoupit zboží za ${goods.buyPrice.toLocaleString("cs-CZ")} Kč</button>
+            <button onclick="sellBusinessGoods()">Prodat zboží za ${goods.sellPrice.toLocaleString("cs-CZ")} Kč</button>
+        </div>
+        ` : ""}
+    `;
+    grid.appendChild(card);
+}
+
 function renderTransactionHistory() {
     const container = document.getElementById("transactionHistory");
     if (!container) return;
@@ -941,6 +1044,7 @@ function openPortfolio() {
     setActiveNav("navPortfolio");
     document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
@@ -956,6 +1060,7 @@ function openAccountHistory() {
     document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.remove("hidden");
     drawAccountHistoryChart();
@@ -968,6 +1073,7 @@ function closeAccountHistory() {
 function setActiveNav(activeId) {
     document.getElementById("navTrading")?.classList.remove("active");
     document.getElementById("navRealEstate")?.classList.remove("active");
+    document.getElementById("navBusiness")?.classList.remove("active");
     document.getElementById("navLoans")?.classList.remove("active");
     document.getElementById("navPortfolio")?.classList.remove("active");
     document.getElementById("navAccountHistory")?.classList.remove("active");
@@ -977,12 +1083,14 @@ function setActiveNav(activeId) {
 function setMainCardView(view) {
     const tradingPage = document.getElementById("tradingPage");
     const realEstatePage = document.getElementById("realEstatePage");
+    const businessPage = document.getElementById("businessPage");
     const loansPage = document.getElementById("loansPage");
     const assetsSidebarCard = document.getElementById("assetsSidebarCard");
     const appShell = document.querySelector(".app-shell");
 
     tradingPage?.classList.toggle("hidden", view !== "trading");
     realEstatePage?.classList.toggle("hidden", view !== "realestate");
+    businessPage?.classList.toggle("hidden", view !== "business");
     loansPage?.classList.toggle("hidden", view !== "loans");
     assetsSidebarCard?.classList.toggle("hidden", view !== "trading");
     appShell?.classList.toggle("no-assets-layout", view !== "trading");
@@ -1003,6 +1111,15 @@ function openRealEstate() {
     document.querySelector(".app-shell")?.classList.remove("hidden");
     setMainCardView("realestate");
     renderRealEstatePage();
+}
+
+function openBusiness() {
+    setActiveNav("navBusiness");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+    setMainCardView("business");
+    renderBusinessPage();
 }
 
 function openLoans() {
@@ -1282,13 +1399,19 @@ function buildSaveText() {
     text += `MonthTick: ${monthTick}\n\n`;
 
     /* ----------------------------------------
-       9) Loans
+       9) Business
+    ---------------------------------------- */
+    text += "=== BUSINESS STATE ===\n";
+    text += `${JSON.stringify(businessState)}\n\n`;
+
+    /* ----------------------------------------
+       10) Loans
     ---------------------------------------- */
     text += "=== LOAN STATE ===\n";
     text += `${JSON.stringify(loanState)}\n\n`;
 
     /* ----------------------------------------
-       10) Otevřené obchody
+       11) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -1310,7 +1433,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       11) Uzavřené obchody
+       12) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -1375,6 +1498,10 @@ function parseImportedData(text, options = {}) {
     transactionHistory = [];
     accountHistory = [];
     realEstates = createDefaultRealEstates();
+    businessState = {
+        shop: { name: "E-shop", value: 200000, owned: 0 },
+        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
+    };
     monthTick = 0;
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
@@ -1485,6 +1612,31 @@ function parseImportedData(text, options = {}) {
         }
     }
 
+    /* ----- BUSINESS STATE ----- */
+    let secBusiness = getSection("BUSINESS STATE");
+    if (secBusiness) {
+        try {
+            const parsedBusiness = JSON.parse(secBusiness.split("\n")[0]);
+            if (parsedBusiness && typeof parsedBusiness === "object") {
+                businessState = {
+                    shop: {
+                        name: parsedBusiness.shop?.name || "E-shop",
+                        value: round2(parsedBusiness.shop?.value ?? 200000),
+                        owned: Number(parsedBusiness.shop?.owned ?? 0)
+                    },
+                    goods: {
+                        inProgress: Boolean(parsedBusiness.goods?.inProgress),
+                        readyToSell: Boolean(parsedBusiness.goods?.readyToSell),
+                        buyPrice: round2(parsedBusiness.goods?.buyPrice ?? 1000),
+                        sellPrice: round2(parsedBusiness.goods?.sellPrice ?? 1100)
+                    }
+                };
+            }
+        } catch {
+            // keep defaults
+        }
+    }
+
     /* ----- LOAN STATE ----- */
     let secLoan = getSection("LOAN STATE");
     if (secLoan) {
@@ -1587,6 +1739,7 @@ function parseImportedData(text, options = {}) {
     renderAssetsSidebar();
     renderTransactionHistory();
     renderRealEstatePage();
+    renderBusinessPage();
     renderLoansPage();
 
     if (!silent) alert("Data byla úspěšně načtena.");
@@ -1636,6 +1789,10 @@ function newGame() {
     accountHistory = [];
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     realEstates = createDefaultRealEstates();
+    businessState = {
+        shop: { name: "E-shop", value: 200000, owned: 0 },
+        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
+    };
     monthTick = 0;
     candles = assets.growth.candles;
     candleIndex = 0;
@@ -1667,6 +1824,7 @@ function newGame() {
     drawChart();
     renderTransactionHistory();
     renderRealEstatePage();
+    renderBusinessPage();
     renderLoansPage();
 }
 
