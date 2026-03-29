@@ -42,14 +42,33 @@ const STORAGE_KEY = "tradingGameState";
 const AUTOSAVE_INTERVAL = 2000;
 const DIVIDEND_RATE = 0.025;
 const DIVIDEND_PERIOD_TICKS = 12;
+const MAX_CANDLES = 100;
 
 let currentAsset = "growth";
+
+function generateInitialCandles(startPrice, count = MAX_CANDLES) {
+    const candles = [];
+    let p = startPrice;
+
+    for (let i = 0; i < count; i++) {
+        const drift = (Math.random() - 0.5) * 0.9;
+        const open = p;
+        const close = Math.max(0.01, round2(open + drift));
+        const high = round2(Math.max(open, close) + Math.random() * 0.5);
+        const low = round2(Math.max(0.01, Math.min(open, close) - Math.random() * 0.5));
+        candles.push({ o: round2(open), h: high, l: low, c: close });
+        p = close;
+    }
+
+    return candles;
+}
+
 let assets = {
     growth: {
         name: "GrowthTech",
         price: 100,
         velocity: 0,
-        candles: [{ o: 100, h: 100, l: 100, c: 100 }],
+        candles: generateInitialCandles(100),
         tick: 0,
         dividendTick: 0,
         tradeMarkers: [],
@@ -61,7 +80,7 @@ let assets = {
         name: "StableDiv",
         price: 80,
         velocity: 0,
-        candles: [{ o: 80, h: 80, l: 80, c: 80 }],
+        candles: generateInitialCandles(80),
         tick: 0,
         dividendTick: 0,
         tradeMarkers: [],
@@ -70,6 +89,9 @@ let assets = {
         dividendRate: DIVIDEND_RATE
     }
 };
+Object.values(assets).forEach(a => {
+    a.price = a.candles[a.candles.length - 1].c;
+});
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -90,9 +112,7 @@ resizeCanvas();
       CANDLE DATA
 --------------------------------------------------- */
 
-let candles = [{
-    o: 100, h: 100, l: 100, c: 100
-}];
+let candles = assets.growth.candles;
 
 let candleIndex = 0;
 let tick = 0;
@@ -177,8 +197,8 @@ function updatePrice() {
         if (asset.tick >= 6) {
             asset.candles.push({ o: asset.price, h: asset.price, l: asset.price, c: asset.price });
 
-            if (asset.candles.length > 50) {
-                asset.candles.splice(0, asset.candles.length - 50);
+            if (asset.candles.length > MAX_CANDLES) {
+                asset.candles.splice(0, asset.candles.length - MAX_CANDLES);
             }
 
             asset.tick = 0;
@@ -1030,7 +1050,7 @@ function buildSaveText() {
     /* ----------------------------------------
        10) candles (svíčky)
     ---------------------------------------- */
-    text += "=== LAST 50 CANDLES (OHLC) ===\n";
+    text += "=== LAST 100 CANDLES (OHLC) ===\n";
 
     candles.forEach((c, i) => {
         text += `${i}. O:${c.o} H:${c.h} L:${c.l} C:${c.c}\n`;
@@ -1204,7 +1224,8 @@ function parseImportedData(text, options = {}) {
     }
 
     /* ----- CANDLES ----- */
-    let secCandles = getSection("LAST 50 CANDLES (OHLC)");
+    let secCandles = getSection("LAST 100 CANDLES (OHLC)");
+    if (!secCandles) secCandles = getSection("LAST 50 CANDLES (OHLC)");
     if (secCandles) {
         let lines = secCandles.split("\n");
         lines.forEach(line => {
@@ -1221,7 +1242,7 @@ function parseImportedData(text, options = {}) {
     }
 
     if (candles.length === 0) {
-        candles = [{ o: price, h: price, l: price, c: price }];
+        candles = generateInitialCandles(price);
     }
 
     candleIndex = candles.length - 1;
@@ -1253,7 +1274,7 @@ function newGame() {
             name: "GrowthTech",
             price: 100,
             velocity: 0,
-            candles: [{ o: 100, h: 100, l: 100, c: 100 }],
+            candles: generateInitialCandles(100),
             tick: 0,
             dividendTick: 0,
             tradeMarkers: [],
@@ -1265,7 +1286,7 @@ function newGame() {
             name: "StableDiv",
             price: 80,
             velocity: 0,
-            candles: [{ o: 80, h: 80, l: 80, c: 80 }],
+            candles: generateInitialCandles(80),
             tick: 0,
             dividendTick: 0,
             tradeMarkers: [],
@@ -1274,6 +1295,9 @@ function newGame() {
             dividendRate: DIVIDEND_RATE
         }
     };
+    Object.values(assets).forEach(a => {
+        a.price = a.candles[a.candles.length - 1].c;
+    });
 
     price = assets.growth.price;
     velocity = assets.growth.velocity;
