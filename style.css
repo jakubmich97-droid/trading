@@ -77,6 +77,10 @@ body {
     margin-left: 230px;
 }
 
+.app-shell.no-assets-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+}
+
 .app-header h1 {
     margin: 0;
     font-size: 2.1rem;

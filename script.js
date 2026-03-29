@@ -958,11 +958,13 @@ function setMainCardView(view) {
     const realEstatePage = document.getElementById("realEstatePage");
     const loansPage = document.getElementById("loansPage");
     const assetsSidebarCard = document.getElementById("assetsSidebarCard");
+    const appShell = document.querySelector(".app-shell");
 
     tradingPage?.classList.toggle("hidden", view !== "trading");
     realEstatePage?.classList.toggle("hidden", view !== "realestate");
     loansPage?.classList.toggle("hidden", view !== "loans");
     assetsSidebarCard?.classList.toggle("hidden", view !== "trading");
+    appShell?.classList.toggle("no-assets-layout", view !== "trading");
 }
 
 function openTrading() {
