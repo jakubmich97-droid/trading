@@ -844,7 +844,9 @@ function drawAccountHistoryChart() {
     const ctxLine = canvas.getContext("2d");
     ctxLine.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (accountHistory.length < 2) {
+    const visibleHistory = accountHistory.slice(-100);
+
+    if (visibleHistory.length < 2) {
         ctxLine.fillStyle = "#cbd5e1";
         ctxLine.font = "20px Inter, sans-serif";
         ctxLine.fillText("Málo dat pro vykreslení křivky.", 240, canvas.height / 2);
@@ -852,7 +854,7 @@ function drawAccountHistoryChart() {
         return;
     }
 
-    const values = accountHistory.map(p => p.total);
+    const values = visibleHistory.map(p => p.total);
     const min = Math.min(...values);
     const max = Math.max(...values);
     const padding = 50;
@@ -873,16 +875,16 @@ function drawAccountHistoryChart() {
     ctxLine.strokeStyle = "#22d3ee";
     ctxLine.lineWidth = 3;
     ctxLine.beginPath();
-    accountHistory.forEach((p, i) => {
-        const x = padding + (i / (accountHistory.length - 1)) * w;
+    visibleHistory.forEach((p, i) => {
+        const x = padding + (i / (visibleHistory.length - 1)) * w;
         const y = canvas.height - padding - ((p.total - min) / range) * h;
         if (i === 0) ctxLine.moveTo(x, y);
         else ctxLine.lineTo(x, y);
     });
     ctxLine.stroke();
 
-    const last = accountHistory[accountHistory.length - 1];
-    const first = accountHistory[0];
+    const last = visibleHistory[visibleHistory.length - 1];
+    const first = visibleHistory[0];
     const delta = round2(last.total - first.total);
     const deltaColor = delta >= 0 ? "#4ade80" : "#f87171";
 
