@@ -1343,7 +1343,6 @@ function parseImportedData(text, options = {}) {
     realEstates = createDefaultRealEstates();
     monthTick = 0;
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
-    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
 
     // Helper — safe section extractor
