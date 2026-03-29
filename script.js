@@ -45,6 +45,8 @@ const AUTOSAVE_INTERVAL = 2000;
 const DIVIDEND_RATE = 0.025;
 const DIVIDEND_PERIOD_TICKS = 12;
 const MAX_CANDLES = 75;
+const REAL_ESTATE_GROWTH_RATE = 0.0003;
+const LAND_GROWTH_RATE = 0.00015;
 
 let currentAsset = "growth";
 
@@ -105,7 +107,7 @@ function createDefaultRealEstates() {
         small_apartment: {
             name: "Malý byt",
             value: 3500000,
-            growthRate: 0.002,
+            growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 10000,
             maintenance: 0,
             owned: 0
@@ -113,7 +115,7 @@ function createDefaultRealEstates() {
         medium_apartment: {
             name: "Střední byt",
             value: 5000000,
-            growthRate: 0.002,
+            growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 15000,
             maintenance: 0,
             owned: 0
@@ -121,7 +123,7 @@ function createDefaultRealEstates() {
         commercial: {
             name: "Komerční prostory",
             value: 10000000,
-            growthRate: 0.002,
+            growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 30000,
             maintenance: 0,
             owned: 0
@@ -129,7 +131,7 @@ function createDefaultRealEstates() {
         house: {
             name: "Dům (upřesníš později)",
             value: 0,
-            growthRate: 0.001,
+            growthRate: LAND_GROWTH_RATE,
             monthlyRent: 0,
             maintenance: 0,
             owned: 0
@@ -796,6 +798,7 @@ function processRealEstateMonth() {
 
     Object.values(realEstates).forEach(item => {
         item.value = round2(item.value * (1 + item.growthRate));
+        item.monthlyRent = round2(item.monthlyRent * (1 + item.growthRate));
         if (item.owned > 0 && item.monthlyRent > 0) {
             rentIncome += item.owned * item.monthlyRent;
         }
