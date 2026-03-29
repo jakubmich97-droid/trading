@@ -14,6 +14,7 @@ window.addEventListener("load", () => {
         renderTrades();
         renderTransactionHistory();
         renderRealEstatePage();
+        renderLoansPage();
         updateAccount();
         drawChart();
     }
@@ -139,6 +140,12 @@ function createDefaultRealEstates() {
 let realEstates = createDefaultRealEstates();
 
 let monthTick = 0;
+let loanState = {
+    principal: 0,
+    totalDue: 0,
+    monthlyPayment: 0,
+    remainingInstallments: 0
+};
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -229,6 +236,7 @@ function updatePrice() {
     if (monthTick >= DIVIDEND_PERIOD_TICKS) {
         monthTick = 0;
         processRealEstateMonth();
+        processLoanMonth();
     }
 
     Object.entries(assets).forEach(([assetKey, asset]) => {
@@ -803,6 +811,64 @@ function processRealEstateMonth() {
     }
 }
 
+function processLoanMonth() {
+    if (!loanState.remainingInstallments || loanState.remainingInstallments <= 0) return;
+
+    balance = round2(balance - loanState.monthlyPayment);
+    loanState.remainingInstallments -= 1;
+    addTransaction("Splátka půjčky", -loanState.monthlyPayment);
+
+    if (loanState.remainingInstallments <= 0) {
+        loanState = {
+            principal: 0,
+            totalDue: 0,
+            monthlyPayment: 0,
+            remainingInstallments: 0
+        };
+    }
+
+    if (!document.getElementById("loansPage")?.classList.contains("hidden")) {
+        renderLoansPage();
+    }
+}
+
+function borrowLoan() {
+    const amount = Number(document.getElementById("loanAmount")?.value || 0);
+    const maxLoan = balance * 100;
+    if (!amount || amount <= 0) return alert("Neplatná výše půjčky.");
+    if (loanState.remainingInstallments > 0) return alert("Nejdřív doplať stávající půjčku.");
+    if (amount > maxLoan) return alert("Překročen maximální limit půjčky.");
+
+    loanState.principal = round2(amount);
+    loanState.totalDue = round2(amount * 1.05);
+    loanState.monthlyPayment = round2(loanState.totalDue / 60);
+    loanState.remainingInstallments = 60;
+
+    balance = round2(balance + loanState.principal);
+    addTransaction("Přijatá půjčka", loanState.principal);
+    renderLoansPage();
+    updateAccount();
+}
+
+function renderLoansPage() {
+    const maxEl = document.getElementById("loanMaxValue");
+    const infoEl = document.getElementById("loanInfo");
+    if (!maxEl || !infoEl) return;
+
+    maxEl.innerText = `${Math.round(balance * 100).toLocaleString("cs-CZ")} Kč`;
+
+    if (loanState.remainingInstallments > 0) {
+        infoEl.innerHTML = `
+            <p>Aktivní půjčka: <strong>${loanState.principal.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Celkem k úhradě: <strong>${loanState.totalDue.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Měsíční splátka: <strong>${loanState.monthlyPayment.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Zbývá splátek: <strong>${loanState.remainingInstallments}</strong></p>
+        `;
+    } else {
+        infoEl.innerHTML = "<p>Momentálně nemáš aktivní půjčku.</p>";
+    }
+}
+
 function renderRealEstatePage() {
     const grid = document.getElementById("realEstateGrid");
     if (!grid) return;
@@ -852,8 +918,9 @@ function renderTransactionHistory() {
 
 function openPortfolio() {
     setActiveNav("navTrading");
-    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
     drawPortfolioChart();
@@ -866,9 +933,10 @@ function closePortfolio() {
 
 function openAccountHistory() {
     setActiveNav("navTrading");
-    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.remove("hidden");
     drawAccountHistoryChart();
 }
@@ -881,6 +949,7 @@ function closeAccountHistory() {
 function setActiveNav(activeId) {
     document.getElementById("navTrading")?.classList.remove("active");
     document.getElementById("navRealEstate")?.classList.remove("active");
+    document.getElementById("navLoans")?.classList.remove("active");
     document.getElementById(activeId)?.classList.add("active");
 }
 
@@ -889,6 +958,7 @@ function openTrading() {
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.getElementById("loansPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
 }
 
@@ -896,9 +966,20 @@ function openRealEstate() {
     setActiveNav("navRealEstate");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
-    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("loansPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("realEstatePage")?.classList.remove("hidden");
     renderRealEstatePage();
+}
+
+function openLoans() {
+    setActiveNav("navLoans");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+    document.getElementById("loansPage")?.classList.remove("hidden");
+    renderLoansPage();
 }
 
 function drawPortfolioChart() {
@@ -1167,7 +1248,13 @@ function buildSaveText() {
     text += `MonthTick: ${monthTick}\n\n`;
 
     /* ----------------------------------------
-       9) Otevřené obchody
+       9) Loans
+    ---------------------------------------- */
+    text += "=== LOAN STATE ===\n";
+    text += `${JSON.stringify(loanState)}\n\n`;
+
+    /* ----------------------------------------
+       10) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -1189,7 +1276,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       10) Uzavřené obchody
+       11) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -1213,7 +1300,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       11) candles (svíčky)
+       12) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 75 CANDLES (OHLC) ===\n";
 
@@ -1255,6 +1342,8 @@ function parseImportedData(text, options = {}) {
     accountHistory = [];
     realEstates = createDefaultRealEstates();
     monthTick = 0;
+    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
 
     // Helper — safe section extractor
@@ -1363,6 +1452,24 @@ function parseImportedData(text, options = {}) {
         }
     }
 
+    /* ----- LOAN STATE ----- */
+    let secLoan = getSection("LOAN STATE");
+    if (secLoan) {
+        try {
+            const parsedLoan = JSON.parse(secLoan.split("\n")[0]);
+            if (parsedLoan && typeof parsedLoan === "object") {
+                loanState = {
+                    principal: round2(parsedLoan.principal ?? 0),
+                    totalDue: round2(parsedLoan.totalDue ?? 0),
+                    monthlyPayment: round2(parsedLoan.monthlyPayment ?? 0),
+                    remainingInstallments: Number(parsedLoan.remainingInstallments ?? 0)
+                };
+            }
+        } catch {
+            // keep defaults
+        }
+    }
+
     /* ----- OPEN TRADES ----- */
     let secOpen = getSection("OPEN TRADES");
     if (secOpen) {
@@ -1447,6 +1554,7 @@ function parseImportedData(text, options = {}) {
     renderAssetsSidebar();
     renderTransactionHistory();
     renderRealEstatePage();
+    renderLoansPage();
 
     if (!silent) alert("Data byla úspěšně načtena.");
 }
@@ -1525,6 +1633,7 @@ function newGame() {
     drawChart();
     renderTransactionHistory();
     renderRealEstatePage();
+    renderLoansPage();
 }
 
 function syncIndicatorCheckboxes() {

@@ -11,6 +11,7 @@
   <h2>Invest game</h2>
   <button id="navTrading" class="nav-btn active" onclick="openTrading()">📈 Trading</button>
   <button id="navRealEstate" class="nav-btn" onclick="openRealEstate()">🏠 Nemovitosti</button>
+  <button id="navLoans" class="nav-btn" onclick="openLoans()">💳 Půjčky</button>
 </aside>
 
 <div class="app-shell">
@@ -139,6 +140,24 @@
       <button onclick="openTrading()">⬅ Zpět na Trading</button>
     </div>
     <div id="realEstateGrid" class="realestate-grid"></div>
+  </div>
+</section>
+
+<section id="loansPage" class="portfolio-page hidden">
+  <div class="card portfolio-card">
+    <div class="portfolio-header">
+      <h2>Půjčky</h2>
+      <button onclick="openTrading()">⬅ Zpět na Trading</button>
+    </div>
+    <div class="realestate-card">
+      <p>Max půjčka: <strong id="loanMaxValue"></strong></p>
+      <p>Úrok: <strong>5 %</strong> | Doba: <strong>5 let (60 splátek)</strong></p>
+      <input type="number" id="loanAmount" placeholder="Výše půjčky">
+      <div class="toolbar">
+        <button onclick="borrowLoan()">Půjčit</button>
+      </div>
+      <div id="loanInfo"></div>
+    </div>
   </div>
 </section>
 
