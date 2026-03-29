@@ -935,7 +935,7 @@ function renderTransactionHistory() {
 }
 
 function openPortfolio() {
-    setActiveNav("navTrading");
+    setActiveNav("navPortfolio");
     document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
@@ -945,12 +945,11 @@ function openPortfolio() {
 }
 
 function closePortfolio() {
-    document.getElementById("portfolioPage")?.classList.add("hidden");
-    document.querySelector(".app-shell")?.classList.remove("hidden");
+    openTrading();
 }
 
 function openAccountHistory() {
-    setActiveNav("navTrading");
+    setActiveNav("navAccountHistory");
     document.querySelector(".app-shell")?.classList.remove("hidden");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
@@ -960,14 +959,15 @@ function openAccountHistory() {
 }
 
 function closeAccountHistory() {
-    document.getElementById("accountHistoryPage")?.classList.add("hidden");
-    document.querySelector(".app-shell")?.classList.remove("hidden");
+    openTrading();
 }
 
 function setActiveNav(activeId) {
     document.getElementById("navTrading")?.classList.remove("active");
     document.getElementById("navRealEstate")?.classList.remove("active");
     document.getElementById("navLoans")?.classList.remove("active");
+    document.getElementById("navPortfolio")?.classList.remove("active");
+    document.getElementById("navAccountHistory")?.classList.remove("active");
     document.getElementById(activeId)?.classList.add("active");
 }
 
