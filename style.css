@@ -52,6 +52,8 @@ body {
 
 .app {
     max-width: 1360px;
+    width: 100%;
+    min-width: 0;
     margin: 0;
     padding: 24px 16px 40px;
     display: grid;
@@ -69,7 +71,7 @@ body {
     margin: 0 auto;
     padding: 0 10px;
     display: grid;
-    grid-template-columns: 320px minmax(980px, 1fr) 360px;
+    grid-template-columns: 320px minmax(0, 1fr) 360px;
     gap: 12px;
     align-items: start;
     margin-left: 230px;
@@ -375,6 +377,8 @@ select {
 
 .portfolio-page {
     min-height: 100vh;
+    width: 100%;
+    min-width: 0;
     display: grid;
     place-items: center;
     padding: 20px;
@@ -394,6 +398,7 @@ select {
 
 .portfolio-card {
     width: min(920px, 96vw);
+    min-width: 0;
     display: grid;
     gap: 14px;
 }
