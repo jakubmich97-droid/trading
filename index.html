@@ -18,11 +18,20 @@
     <h1>Invest Game</h1>
   </header>
 
-  <section class="card balance-hero">
-    <img src="money.svg" alt="Peníze" class="money-icon">
-    <div>
-      <p class="balance-hero-label">Volné prostředky</p>
-      <p class="balance-hero-value"><span id="balance"></span></p>
+  <section class="top-summary">
+    <div class="card balance-hero">
+      <img src="money.svg" alt="Peníze" class="money-icon">
+      <div>
+        <p class="balance-hero-label">Volné prostředky</p>
+        <p class="balance-hero-value"><span id="balance"></span></p>
+      </div>
+    </div>
+
+    <div class="card account-inline">
+      <h3>Stav účtu</h3>
+      <p>Investováno: <span id="invested"></span></p>
+      <p>Unrealized: <span id="unrealized"></span></p>
+      <p>Total: <span id="total"></span></p>
     </div>
   </section>
 
@@ -62,8 +71,8 @@
     <div class="input-grid">
       <input type="number" id="sl" placeholder="Stop Loss">
       <input type="number" id="tp" placeholder="Take Profit">
-      <input type="number" id="volume" placeholder="Vol (lot)" step="0.01">
-      <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100">
+      <input type="number" id="volume" placeholder="Vol (lot)" step="0.01" oninput="calculateCost()">
+      <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100" oninput="calculateCost()">
     </div>
     <p class="cost-line">Cost: <span id="cost">0</span></p>
 
@@ -86,12 +95,6 @@
       <div id="globalOpenPositions"></div>
     </div>
 
-    <div>
-      <h3>Stav účtu</h3>
-      <p>Investováno: <span id="invested"></span></p>
-      <p>Unrealized: <span id="unrealized"></span></p>
-      <p>Total: <span id="total"></span></p>
-    </div>
   </section>
 </main>
 

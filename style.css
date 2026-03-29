@@ -58,6 +58,16 @@ body {
     background: linear-gradient(145deg, rgba(6, 78, 59, 0.55), rgba(5, 150, 105, 0.25));
 }
 
+.top-summary {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 12px;
+}
+
+.account-inline p {
+    margin: 8px 0;
+}
+
 .money-icon {
     width: 64px;
     height: 64px;
@@ -145,11 +155,29 @@ button.danger {
 }
 
 .buy-btn {
-    background: linear-gradient(180deg, #22c55e, #166534);
+    background: linear-gradient(180deg, #34d399, #047857);
+    border: 1px solid rgba(16, 185, 129, 0.8);
+    min-width: 150px;
+    min-height: 56px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 0 1px rgba(16, 185, 129, 0.35) inset,
+        0 8px 20px rgba(16, 185, 129, 0.25);
 }
 
 .sell-btn {
-    background: linear-gradient(180deg, #ef4444, #7f1d1d);
+    background: linear-gradient(180deg, #fb7185, #9f1239);
+    border: 1px solid rgba(244, 63, 94, 0.8);
+    min-width: 150px;
+    min-height: 56px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    box-shadow:
+        0 0 0 1px rgba(244, 63, 94, 0.35) inset,
+        0 8px 20px rgba(244, 63, 94, 0.25);
 }
 
 input[type="number"],
@@ -213,7 +241,7 @@ select {
 
 .info-card {
     display: grid;
-    grid-template-columns: 1.2fr 1.2fr 0.8fr;
+    grid-template-columns: 1fr 1fr;
     gap: 14px;
 }
 
@@ -369,6 +397,10 @@ select {
     }
 
     .info-card {
+        grid-template-columns: 1fr;
+    }
+
+    .top-summary {
         grid-template-columns: 1fr;
     }
 

@@ -929,8 +929,17 @@ function updateAccount() {
 
 function calculateCost() {
     const volume = parseFloat(document.getElementById("volume").value);
-    if (!volume) return;
-    document.getElementById("cost").innerText = (price * volume).toFixed(2);
+    const buyPercent = parseFloat(document.getElementById("buyPercent").value);
+
+    let cost = 0;
+    if (buyPercent && buyPercent > 0) {
+        const pct = Math.min(Math.max(buyPercent, 0), 100);
+        cost = balance * (pct / 100);
+    } else if (volume && volume > 0) {
+        cost = price * volume;
+    }
+
+    document.getElementById("cost").innerText = cost.toFixed(2);
 }
 
 
