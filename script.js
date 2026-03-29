@@ -42,7 +42,7 @@ const STORAGE_KEY = "tradingGameState";
 const AUTOSAVE_INTERVAL = 2000;
 const DIVIDEND_RATE = 0.025;
 const DIVIDEND_PERIOD_TICKS = 12;
-const MAX_CANDLES = 100;
+const MAX_CANDLES = 75;
 
 let currentAsset = "growth";
 
@@ -63,12 +63,17 @@ function generateInitialCandles(startPrice, count = MAX_CANDLES) {
     return candles;
 }
 
+function generateFlatCandles(startPrice, count = MAX_CANDLES) {
+    const p = round2(startPrice);
+    return Array.from({ length: count }, () => ({ o: p, h: p, l: p, c: p }));
+}
+
 let assets = {
     growth: {
         name: "GrowthTech",
         price: 100,
         velocity: 0,
-        candles: generateInitialCandles(100),
+        candles: generateFlatCandles(100),
         tick: 0,
         dividendTick: 0,
         tradeMarkers: [],
@@ -80,7 +85,7 @@ let assets = {
         name: "StableDiv",
         price: 80,
         velocity: 0,
-        candles: generateInitialCandles(80),
+        candles: generateFlatCandles(80),
         tick: 0,
         dividendTick: 0,
         tradeMarkers: [],
@@ -1050,7 +1055,7 @@ function buildSaveText() {
     /* ----------------------------------------
        10) candles (svíčky)
     ---------------------------------------- */
-    text += "=== LAST 100 CANDLES (OHLC) ===\n";
+    text += "=== LAST 75 CANDLES (OHLC) ===\n";
 
     candles.forEach((c, i) => {
         text += `${i}. O:${c.o} H:${c.h} L:${c.l} C:${c.c}\n`;
@@ -1224,7 +1229,8 @@ function parseImportedData(text, options = {}) {
     }
 
     /* ----- CANDLES ----- */
-    let secCandles = getSection("LAST 100 CANDLES (OHLC)");
+    let secCandles = getSection("LAST 75 CANDLES (OHLC)");
+    if (!secCandles) secCandles = getSection("LAST 100 CANDLES (OHLC)");
     if (!secCandles) secCandles = getSection("LAST 50 CANDLES (OHLC)");
     if (secCandles) {
         let lines = secCandles.split("\n");
@@ -1242,7 +1248,7 @@ function parseImportedData(text, options = {}) {
     }
 
     if (candles.length === 0) {
-        candles = generateInitialCandles(price);
+        candles = generateFlatCandles(price);
     }
 
     candleIndex = candles.length - 1;
