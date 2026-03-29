@@ -953,22 +953,32 @@ function setActiveNav(activeId) {
     document.getElementById(activeId)?.classList.add("active");
 }
 
+function setMainCardView(view) {
+    const tradingPage = document.getElementById("tradingPage");
+    const realEstatePage = document.getElementById("realEstatePage");
+    const loansPage = document.getElementById("loansPage");
+    const assetsSidebarCard = document.getElementById("assetsSidebarCard");
+
+    tradingPage?.classList.toggle("hidden", view !== "trading");
+    realEstatePage?.classList.toggle("hidden", view !== "realestate");
+    loansPage?.classList.toggle("hidden", view !== "loans");
+    assetsSidebarCard?.classList.toggle("hidden", view !== "trading");
+}
+
 function openTrading() {
     setActiveNav("navTrading");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
-    document.getElementById("realEstatePage")?.classList.add("hidden");
-    document.getElementById("loansPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
+    setMainCardView("trading");
 }
 
 function openRealEstate() {
     setActiveNav("navRealEstate");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
-    document.getElementById("loansPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
-    document.getElementById("realEstatePage")?.classList.remove("hidden");
+    setMainCardView("realestate");
     renderRealEstatePage();
 }
 
@@ -976,9 +986,8 @@ function openLoans() {
     setActiveNav("navLoans");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
-    document.getElementById("realEstatePage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
-    document.getElementById("loansPage")?.classList.remove("hidden");
+    setMainCardView("loans");
     renderLoansPage();
 }
 

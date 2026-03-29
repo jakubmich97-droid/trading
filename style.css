@@ -59,6 +59,11 @@ body {
     flex: 1;
 }
 
+#tradingPage {
+    display: grid;
+    gap: 14px;
+}
+
 .app-shell {
     max-width: 1680px;
     margin: 0 auto;
@@ -373,6 +378,18 @@ select {
     display: grid;
     place-items: center;
     padding: 20px;
+}
+
+#realEstatePage,
+#loansPage {
+    min-height: auto;
+    place-items: stretch;
+    padding: 0;
+}
+
+#realEstatePage .portfolio-card,
+#loansPage .portfolio-card {
+    width: 100%;
 }
 
 .portfolio-card {

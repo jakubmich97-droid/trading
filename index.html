@@ -15,7 +15,7 @@
 </aside>
 
 <div class="app-shell">
-<aside class="card assets-sidebar">
+<aside id="assetsSidebarCard" class="card assets-sidebar">
   <h3>Všechny akcie</h3>
   <div id="assetsSidebar"></div>
 </aside>
@@ -42,66 +42,96 @@
     </div>
   </section>
 
-  <section class="card controls-card">
-    <div class="toolbar">
-      <button onclick="setSpeed(0)">⏸ Pause</button>
-      <button onclick="setSpeed(1000)">▶ Play (1×)</button>
-      <button onclick="setSpeed(500)">2×</button>
-      <button onclick="setSpeed(200)">5×</button>
-      <button onclick="openPortfolio()">📊 Portfolio</button>
-      <button onclick="openAccountHistory()">📈 Stav účtu</button>
-      <button class="danger" onclick="newGame()">🆕 Nová hra</button>
-    </div>
+  <div id="tradingPage">
+    <section class="card controls-card">
+      <div class="toolbar">
+        <button onclick="setSpeed(0)">⏸ Pause</button>
+        <button onclick="setSpeed(1000)">▶ Play (1×)</button>
+        <button onclick="setSpeed(500)">2×</button>
+        <button onclick="setSpeed(200)">5×</button>
+        <button onclick="openPortfolio()">📊 Portfolio</button>
+        <button onclick="openAccountHistory()">📈 Stav účtu</button>
+        <button class="danger" onclick="newGame()">🆕 Nová hra</button>
+      </div>
 
-    <div class="toolbar">
-      <button onclick="exportData()">📥 Exportovat data</button>
-      <input type="file" id="importFile" accept=".txt">
-      <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
+      <div class="toolbar">
+        <button onclick="exportData()">📥 Exportovat data</button>
+        <input type="file" id="importFile" accept=".txt">
+        <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
+      </div>
+    </section>
+
+    <section class="card indicator-card">
+      <strong>Indikátory:</strong>
+      <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
+      <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
+      <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
+    </section>
+
+    <section class="card chart-card">
+      <p class="price-line">Cena: <span id="price">100</span></p>
+      <div id="chartContainer" style="width:100%; height:500px;">
+          <canvas id="chart"></canvas>
+      </div>
+    </section>
+
+    <section class="card trade-card">
+      <div class="input-grid">
+        <input type="number" id="sl" placeholder="Stop Loss">
+        <input type="number" id="tp" placeholder="Take Profit">
+        <input type="number" id="volume" placeholder="Vol (lot)" step="0.01" oninput="calculateCost()">
+        <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100" oninput="calculateCost()">
+      </div>
+      <p class="cost-line">Cost: <span id="cost">0</span></p>
+
+      <div class="toolbar">
+        <button class="buy-btn" onclick="buy()">BUY</button>
+        <button class="sell-btn" onclick="sell()">SELL</button>
+      </div>
+
+      <p id="status" class="status"></p>
+    </section>
+
+    <section class="card info-card">
+      <div>
+        <h3>Obchody</h3>
+        <div id="trades"></div>
+      </div>
+
+      <div>
+        <h3>Otevřené pozice (všechny akcie)</h3>
+        <div id="globalOpenPositions"></div>
+      </div>
+
+    </section>
+  </div>
+
+  <section id="realEstatePage" class="portfolio-page hidden">
+    <div class="card portfolio-card">
+      <div class="portfolio-header">
+        <h2>Nemovitosti</h2>
+        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+      </div>
+      <div id="realEstateGrid" class="realestate-grid"></div>
     </div>
   </section>
 
-  <section class="card indicator-card">
-    <strong>Indikátory:</strong>
-    <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
-    <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
-    <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
-  </section>
-
-  <section class="card chart-card">
-    <p class="price-line">Cena: <span id="price">100</span></p>
-    <div id="chartContainer" style="width:100%; height:500px;">
-        <canvas id="chart"></canvas>
+  <section id="loansPage" class="portfolio-page hidden">
+    <div class="card portfolio-card">
+      <div class="portfolio-header">
+        <h2>Půjčky</h2>
+        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+      </div>
+      <div class="realestate-card">
+        <p>Max půjčka: <strong id="loanMaxValue"></strong></p>
+        <p>Úrok: <strong>5 %</strong> | Doba: <strong>5 let (60 splátek)</strong></p>
+        <input type="number" id="loanAmount" placeholder="Výše půjčky">
+        <div class="toolbar">
+          <button onclick="borrowLoan()">Půjčit</button>
+        </div>
+        <div id="loanInfo"></div>
+      </div>
     </div>
-  </section>
-
-  <section class="card trade-card">
-    <div class="input-grid">
-      <input type="number" id="sl" placeholder="Stop Loss">
-      <input type="number" id="tp" placeholder="Take Profit">
-      <input type="number" id="volume" placeholder="Vol (lot)" step="0.01" oninput="calculateCost()">
-      <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100" oninput="calculateCost()">
-    </div>
-    <p class="cost-line">Cost: <span id="cost">0</span></p>
-
-    <div class="toolbar">
-      <button class="buy-btn" onclick="buy()">BUY</button>
-      <button class="sell-btn" onclick="sell()">SELL</button>
-    </div>
-
-    <p id="status" class="status"></p>
-  </section>
-
-  <section class="card info-card">
-    <div>
-      <h3>Obchody</h3>
-      <div id="trades"></div>
-    </div>
-
-    <div>
-      <h3>Otevřené pozice (všechny akcie)</h3>
-      <div id="globalOpenPositions"></div>
-    </div>
-
   </section>
 </main>
 
@@ -130,34 +160,6 @@
     </div>
     <canvas id="accountHistoryChart" width="960" height="500"></canvas>
     <div id="accountHistoryLegend" class="portfolio-legend"></div>
-  </div>
-</section>
-
-<section id="realEstatePage" class="portfolio-page hidden">
-  <div class="card portfolio-card">
-    <div class="portfolio-header">
-      <h2>Nemovitosti</h2>
-      <button onclick="openTrading()">⬅ Zpět na Trading</button>
-    </div>
-    <div id="realEstateGrid" class="realestate-grid"></div>
-  </div>
-</section>
-
-<section id="loansPage" class="portfolio-page hidden">
-  <div class="card portfolio-card">
-    <div class="portfolio-header">
-      <h2>Půjčky</h2>
-      <button onclick="openTrading()">⬅ Zpět na Trading</button>
-    </div>
-    <div class="realestate-card">
-      <p>Max půjčka: <strong id="loanMaxValue"></strong></p>
-      <p>Úrok: <strong>5 %</strong> | Doba: <strong>5 let (60 splátek)</strong></p>
-      <input type="number" id="loanAmount" placeholder="Výše půjčky">
-      <div class="toolbar">
-        <button onclick="borrowLoan()">Půjčit</button>
-      </div>
-      <div id="loanInfo"></div>
-    </div>
   </div>
 </section>
 
