@@ -7,6 +7,12 @@
 
 </head>
 <body>
+<aside class="side-nav">
+  <h2>Invest game</h2>
+  <button id="navTrading" class="nav-btn active" onclick="openTrading()">📈 Trading</button>
+  <button id="navRealEstate" class="nav-btn" onclick="openRealEstate()">🏠 Nemovitosti</button>
+</aside>
+
 <div class="app-shell">
 <aside class="card assets-sidebar">
   <h3>Všechny akcie</h3>
@@ -123,6 +129,16 @@
     </div>
     <canvas id="accountHistoryChart" width="960" height="500"></canvas>
     <div id="accountHistoryLegend" class="portfolio-legend"></div>
+  </div>
+</section>
+
+<section id="realEstatePage" class="portfolio-page hidden">
+  <div class="card portfolio-card">
+    <div class="portfolio-header">
+      <h2>Nemovitosti</h2>
+      <button onclick="openTrading()">⬅ Zpět na Trading</button>
+    </div>
+    <div id="realEstateGrid" class="realestate-grid"></div>
   </div>
 </section>
 

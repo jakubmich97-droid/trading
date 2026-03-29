@@ -13,6 +13,7 @@ window.addEventListener("load", () => {
         renderAssetsSidebar();
         renderTrades();
         renderTransactionHistory();
+        renderRealEstatePage();
         updateAccount();
         drawChart();
     }
@@ -97,6 +98,47 @@ let assets = {
 Object.values(assets).forEach(a => {
     a.price = a.candles[a.candles.length - 1].c;
 });
+
+function createDefaultRealEstates() {
+    return {
+        small_apartment: {
+            name: "Malý byt",
+            value: 3500000,
+            growthRate: 0.002,
+            monthlyRent: 10000,
+            maintenance: 0,
+            owned: 0
+        },
+        medium_apartment: {
+            name: "Střední byt",
+            value: 5000000,
+            growthRate: 0.002,
+            monthlyRent: 15000,
+            maintenance: 0,
+            owned: 0
+        },
+        commercial: {
+            name: "Komerční prostory",
+            value: 10000000,
+            growthRate: 0.002,
+            monthlyRent: 30000,
+            maintenance: 0,
+            owned: 0
+        },
+        house: {
+            name: "Dům (upřesníš později)",
+            value: 0,
+            growthRate: 0.001,
+            monthlyRent: 0,
+            maintenance: 0,
+            owned: 0
+        }
+    };
+}
+
+let realEstates = createDefaultRealEstates();
+
+let monthTick = 0;
 
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
@@ -183,6 +225,11 @@ function switchAsset(assetKey) {
 
 function updatePrice() {
     persistCurrentAssetState();
+    monthTick++;
+    if (monthTick >= DIVIDEND_PERIOD_TICKS) {
+        monthTick = 0;
+        processRealEstateMonth();
+    }
 
     Object.entries(assets).forEach(([assetKey, asset]) => {
         let randomFactor = (Math.random() - 0.5) * asset.volatility;
@@ -711,6 +758,74 @@ function renderAssetsSidebar() {
     });
 }
 
+function buyRealEstate(key) {
+    const item = realEstates[key];
+    if (!item) return;
+    if (item.value <= 0) return alert("Cena této nemovitosti zatím není nastavena.");
+    if (balance < item.value) return alert("Nedostatek volných prostředků.");
+
+    balance = round2(balance - item.value);
+    item.owned += 1;
+    addTransaction(`Koupeno: ${item.name}`, -item.value);
+    renderRealEstatePage();
+    updateAccount();
+}
+
+function sellRealEstate(key) {
+    const item = realEstates[key];
+    if (!item) return;
+    if (item.owned <= 0) return alert("Tuto nemovitost aktuálně nevlastníš.");
+
+    item.owned -= 1;
+    balance = round2(balance + item.value);
+    addTransaction(`Prodáno: ${item.name}`, item.value);
+    renderRealEstatePage();
+    updateAccount();
+}
+
+function processRealEstateMonth() {
+    let rentIncome = 0;
+
+    Object.values(realEstates).forEach(item => {
+        item.value = round2(item.value * (1 + item.growthRate));
+        if (item.owned > 0 && item.monthlyRent > 0) {
+            rentIncome += item.owned * item.monthlyRent;
+        }
+    });
+
+    if (rentIncome > 0) {
+        balance = round2(balance + rentIncome);
+        addTransaction("Nájemné z nemovitostí", rentIncome);
+    }
+
+    if (!document.getElementById("realEstatePage")?.classList.contains("hidden")) {
+        renderRealEstatePage();
+    }
+}
+
+function renderRealEstatePage() {
+    const grid = document.getElementById("realEstateGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    Object.entries(realEstates).forEach(([key, item]) => {
+        const card = document.createElement("div");
+        card.className = "realestate-card";
+        card.innerHTML = `
+            <h3>${item.name}</h3>
+            <p>Aktuální hodnota: <strong>${item.value.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Vlastním: <strong>${item.owned}</strong></p>
+            <p>Měsíční nájem: <strong>${item.monthlyRent.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Údržba: <strong>${item.maintenance.toLocaleString("cs-CZ")} Kč</strong></p>
+            <div class="toolbar">
+                <button class="buy-btn" onclick="buyRealEstate('${key}')">Koupit</button>
+                <button class="sell-btn" onclick="sellRealEstate('${key}')">Prodat</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
 function renderTransactionHistory() {
     const container = document.getElementById("transactionHistory");
     if (!container) return;
@@ -736,7 +851,9 @@ function renderTransactionHistory() {
 }
 
 function openPortfolio() {
+    setActiveNav("navTrading");
     document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
     drawPortfolioChart();
@@ -748,8 +865,10 @@ function closePortfolio() {
 }
 
 function openAccountHistory() {
+    setActiveNav("navTrading");
     document.querySelector(".app-shell")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.remove("hidden");
     drawAccountHistoryChart();
 }
@@ -757,6 +876,29 @@ function openAccountHistory() {
 function closeAccountHistory() {
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
+}
+
+function setActiveNav(activeId) {
+    document.getElementById("navTrading")?.classList.remove("active");
+    document.getElementById("navRealEstate")?.classList.remove("active");
+    document.getElementById(activeId)?.classList.add("active");
+}
+
+function openTrading() {
+    setActiveNav("navTrading");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.getElementById("realEstatePage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+}
+
+function openRealEstate() {
+    setActiveNav("navRealEstate");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.add("hidden");
+    document.getElementById("realEstatePage")?.classList.remove("hidden");
+    renderRealEstatePage();
 }
 
 function drawPortfolioChart() {
@@ -1018,7 +1160,14 @@ function buildSaveText() {
     text += `${JSON.stringify(accountHistory)}\n\n`;
 
     /* ----------------------------------------
-       8) Otevřené obchody
+       8) Real estate
+    ---------------------------------------- */
+    text += "=== REAL ESTATE ===\n";
+    text += `${JSON.stringify(realEstates)}\n`;
+    text += `MonthTick: ${monthTick}\n\n`;
+
+    /* ----------------------------------------
+       9) Otevřené obchody
     ---------------------------------------- */
     text += "=== OPEN TRADES ===\n";
     if (trades.length === 0) {
@@ -1040,7 +1189,7 @@ function buildSaveText() {
     text += "\n";
 
     /* ----------------------------------------
-       9) Uzavřené obchody
+       10) Uzavřené obchody
     ---------------------------------------- */
     if (window.closedTrades) {
         text += "=== CLOSED TRADES ===\n";
@@ -1064,7 +1213,7 @@ function buildSaveText() {
     }
 
     /* ----------------------------------------
-       10) candles (svíčky)
+       11) candles (svíčky)
     ---------------------------------------- */
     text += "=== LAST 75 CANDLES (OHLC) ===\n";
 
@@ -1104,6 +1253,8 @@ function parseImportedData(text, options = {}) {
     tradeMarkers = [];
     transactionHistory = [];
     accountHistory = [];
+    realEstates = createDefaultRealEstates();
+    monthTick = 0;
     window.closedTrades = [];
 
     // Helper — safe section extractor
@@ -1194,6 +1345,24 @@ function parseImportedData(text, options = {}) {
         }
     }
 
+    /* ----- REAL ESTATE ----- */
+    let secRealEstate = getSection("REAL ESTATE");
+    if (secRealEstate) {
+        const jsonLine = secRealEstate.split("\n")[0];
+        const monthLine = secRealEstate.split("\n").find(l => l.startsWith("MonthTick:"));
+        try {
+            const parsedRealEstate = JSON.parse(jsonLine);
+            if (parsedRealEstate && typeof parsedRealEstate === "object") {
+                realEstates = parsedRealEstate;
+            }
+        } catch {
+            // keep defaults
+        }
+        if (monthLine) {
+            monthTick = Number(monthLine.replace("MonthTick:", "").trim()) || 0;
+        }
+    }
+
     /* ----- OPEN TRADES ----- */
     let secOpen = getSection("OPEN TRADES");
     if (secOpen) {
@@ -1277,6 +1446,7 @@ function parseImportedData(text, options = {}) {
     calculateCost();
     renderAssetsSidebar();
     renderTransactionHistory();
+    renderRealEstatePage();
 
     if (!silent) alert("Data byla úspěšně načtena.");
 }
@@ -1323,6 +1493,8 @@ function newGame() {
     tradeId = 1;
     transactionHistory = [];
     accountHistory = [];
+    realEstates = createDefaultRealEstates();
+    monthTick = 0;
     candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
@@ -1352,6 +1524,7 @@ function newGame() {
     updateAccount();
     drawChart();
     renderTransactionHistory();
+    renderRealEstatePage();
 }
 
 function syncIndicatorCheckboxes() {
