@@ -869,6 +869,24 @@ function renderLoansPage() {
     }
 }
 
+function applyAutomaticOverdraftLoan() {
+    if (balance >= 0) return;
+
+    const needed = round2(Math.abs(balance));
+    const addedTotalDue = round2(needed * 1.10);
+    const installments = loanState.remainingInstallments > 0 ? loanState.remainingInstallments : 60;
+
+    loanState.principal = round2(loanState.principal + needed);
+    loanState.totalDue = round2(loanState.totalDue + addedTotalDue);
+    loanState.remainingInstallments = installments;
+    loanState.monthlyPayment = round2(loanState.totalDue / loanState.remainingInstallments);
+
+    balance = 0;
+    addTransaction("Automatická půjčka", needed);
+    alert(`Volné prostředky šly do mínusu. Byla automaticky poskytnuta půjčka ${needed.toFixed(2)} Kč s úrokem 10 %.`);
+    renderLoansPage();
+}
+
 function renderRealEstatePage() {
     const grid = document.getElementById("realEstateGrid");
     if (!grid) return;
@@ -1134,6 +1152,8 @@ function drawAccountHistoryChart() {
 --------------------------------------------------- */
 
 function updateAccount() {
+    applyAutomaticOverdraftLoan();
+
     let unreal = calculateUnrealized();
     let invested = calculateInvestedCapital();
     let total = balance + invested + unreal;
@@ -1611,6 +1631,7 @@ function newGame() {
     tradeId = 1;
     transactionHistory = [];
     accountHistory = [];
+    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     realEstates = createDefaultRealEstates();
     monthTick = 0;
     candles = assets.growth.candles;
