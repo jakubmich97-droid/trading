@@ -196,6 +196,11 @@ let businessState = {
         readyToSell: false,
         buyPrice: 1000,
         sellPrice: 1100
+    },
+    staff: {
+        employees: 0,
+        salaryPerEmployee: 90,
+        autoInProgress: false
     }
 };
 
@@ -376,10 +381,46 @@ function drawChart() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawCandles();
+    drawYAxis();
     drawIndicators();
     if (displaySettings.rsi) drawRSI();
     drawTradeLines();
     drawTradeMarkers();
+}
+
+function drawYAxis() {
+    if (!candles.length) return;
+    const highs = candles.map(c => c.h);
+    const lows = candles.map(c => c.l);
+    const max = Math.max(...highs);
+    const min = Math.min(...lows);
+    const range = max - min || 1;
+    const ticks = 6;
+    const axisX = canvas.width - 56;
+
+    ctx.fillStyle = "rgba(2, 6, 23, 0.62)";
+    ctx.fillRect(axisX, 0, 56, canvas.height);
+
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
+    ctx.beginPath();
+    ctx.moveTo(axisX, 0);
+    ctx.lineTo(axisX, canvas.height);
+    ctx.stroke();
+
+    ctx.font = "12px Inter, Arial, sans-serif";
+    ctx.fillStyle = "#cbd5e1";
+
+    for (let i = 0; i <= ticks; i++) {
+        const ratio = i / ticks;
+        const y = ratio * canvas.height;
+        const value = max - ratio * range;
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.25)";
+        ctx.beginPath();
+        ctx.moveTo(axisX - 8, y);
+        ctx.lineTo(axisX, y);
+        ctx.stroke();
+        ctx.fillText(value.toFixed(2), axisX + 4, y + 4);
+    }
 }
 
 /* ---------------------------------------------------
@@ -897,7 +938,9 @@ function buyBusinessShop() {
 function sellBusinessShop() {
     const shop = businessState.shop;
     if (shop.owned <= 0) return alert("E-shop aktuálně nevlastníš.");
+    if (businessState.staff.employees > 0) return alert("Nejdřív propusť všechny zaměstnance.");
     if (businessState.goods.inProgress) return alert("Nejdřív dokonči cyklus zboží nebo ho prodej.");
+    if (businessState.staff.autoInProgress) return alert("Počkej na automatický prodej zboží nebo propusť zaměstnance.");
 
     shop.owned -= 1;
     balance = round2(balance + shop.value);
@@ -906,8 +949,24 @@ function sellBusinessShop() {
     updateAccount();
 }
 
+function hireEmployee() {
+    if (businessState.shop.owned <= 0) return alert("Nejdřív musíš vlastnit e-shop.");
+    businessState.staff.employees += 1;
+    renderBusinessPage();
+}
+
+function fireEmployee() {
+    if (businessState.staff.employees <= 0) return alert("Nemáš žádné zaměstnance.");
+    businessState.staff.employees -= 1;
+    if (businessState.staff.employees === 0) {
+        businessState.staff.autoInProgress = false;
+    }
+    renderBusinessPage();
+}
+
 function buyBusinessGoods() {
     if (businessState.shop.owned <= 0) return alert("Nejdřív musíš vlastnit e-shop.");
+    if (businessState.staff.employees > 0) return alert("Se zaměstnanci probíhá nákup/prodej automaticky.");
     if (businessState.goods.inProgress) return alert("Zboží už máš nakoupené. Počkej na další měsíc.");
     if (balance < businessState.goods.buyPrice) return alert("Nedostatek volných prostředků.");
 
@@ -920,6 +979,7 @@ function buyBusinessGoods() {
 }
 
 function sellBusinessGoods() {
+    if (businessState.staff.employees > 0) return alert("Se zaměstnanci probíhá nákup/prodej automaticky.");
     if (!businessState.goods.inProgress) return alert("Nejdřív nakup zboží.");
     if (!businessState.goods.readyToSell) return alert("Zboží můžeš prodat až po jednom měsíci.");
 
@@ -932,6 +992,29 @@ function sellBusinessGoods() {
 }
 
 function processBusinessMonth() {
+    if (businessState.shop.owned > 0 && businessState.staff.employees > 0) {
+        const employees = businessState.staff.employees;
+        const salaryTotal = round2(employees * businessState.staff.salaryPerEmployee);
+        balance = round2(balance - salaryTotal);
+        addTransaction("Mzdy zaměstnanců (e-shop)", -salaryTotal);
+
+        const autoBuy = round2(1000 * employees);
+        const autoSell = round2(autoBuy * (1 + 0.1 * employees));
+
+        if (businessState.staff.autoInProgress) {
+            balance = round2(balance + autoSell);
+            addTransaction("Automatický prodej zboží (e-shop)", autoSell);
+        }
+
+        if (balance >= autoBuy) {
+            balance = round2(balance - autoBuy);
+            addTransaction("Automatický nákup zboží (e-shop)", -autoBuy);
+            businessState.staff.autoInProgress = true;
+        } else {
+            businessState.staff.autoInProgress = false;
+        }
+    }
+
     if (businessState.shop.owned > 0 && businessState.goods.inProgress && !businessState.goods.readyToSell) {
         businessState.goods.readyToSell = true;
         if (!document.getElementById("businessPage")?.classList.contains("hidden")) {
@@ -1102,6 +1185,9 @@ function renderBusinessPage() {
 
     const shop = businessState.shop;
     const goods = businessState.goods;
+    const staff = businessState.staff;
+    const autoBuy = round2(1000 * staff.employees);
+    const autoSell = round2(autoBuy * (1 + 0.1 * staff.employees));
     grid.innerHTML = "";
 
     const card = document.createElement("div");
@@ -1109,18 +1195,25 @@ function renderBusinessPage() {
     card.innerHTML = `
         <img src="${shop.image || "img-eshop.svg"}" alt="${shop.name}" class="entity-image">
         <h3>${shop.name}</h3>
-        <p>Aktuální hodnota: <strong>${shop.value.toLocaleString("cs-CZ")} Kč</strong></p>
+        <p>Aktuální hodnota: <strong>${formatCurrencyInt(shop.value)}</strong></p>
         <p>Vlastním: <strong>${shop.owned}</strong></p>
+        <p>Zaměstnanci: <strong>${staff.employees}</strong> | Mzda: <strong>${formatCurrencyInt(staff.salaryPerEmployee)} / měsíc / zaměstnanec</strong></p>
+        <p>Automatický cyklus: <strong>${staff.autoInProgress ? "Nakoupeno, příští měsíc prodej" : "Připraveno nakoupit"}</strong></p>
+        <p>Auto nákup/prodej: <strong>${formatCurrencyInt(autoBuy)} → ${formatCurrencyInt(autoSell)}</strong></p>
         <p>Zboží: <strong>${goods.inProgress ? (goods.readyToSell ? "Připraveno k prodeji" : "Nakoupeno, čeká na měsíc") : "Žádné"} </strong></p>
-        <p>Nákup zboží: <strong>${goods.buyPrice.toLocaleString("cs-CZ")} Kč</strong> | Prodej: <strong>${goods.sellPrice.toLocaleString("cs-CZ")} Kč</strong></p>
+        <p>Nákup zboží (manuálně): <strong>${formatCurrencyInt(goods.buyPrice)}</strong> | Prodej: <strong>${formatCurrencyInt(goods.sellPrice)}</strong></p>
         <div class="toolbar">
             <button class="buy-btn" onclick="buyBusinessShop()">Koupit e-shop</button>
             <button class="sell-btn" onclick="sellBusinessShop()">Prodat e-shop</button>
         </div>
         ${shop.owned > 0 ? `
         <div class="toolbar">
-            <button onclick="buyBusinessGoods()">Nakoupit zboží za ${goods.buyPrice.toLocaleString("cs-CZ")} Kč</button>
-            <button onclick="sellBusinessGoods()">Prodat zboží za ${goods.sellPrice.toLocaleString("cs-CZ")} Kč</button>
+            <button onclick="buyBusinessGoods()">Nakoupit zboží za ${formatCurrencyInt(goods.buyPrice)}</button>
+            <button onclick="sellBusinessGoods()">Prodat zboží za ${formatCurrencyInt(goods.sellPrice)}</button>
+        </div>
+        <div class="toolbar">
+            <button onclick="hireEmployee()">Najmout zaměstnance</button>
+            <button onclick="fireEmployee()">Propustit zaměstnance</button>
         </div>
         ` : ""}
     `;
@@ -1623,7 +1716,8 @@ function parseImportedData(text, options = {}) {
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
-        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
+        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
+        staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
     };
     monthTick = 0;
     elapsedMonths = 0;
@@ -1757,6 +1851,11 @@ function parseImportedData(text, options = {}) {
                         readyToSell: Boolean(parsedBusiness.goods?.readyToSell),
                         buyPrice: round2(parsedBusiness.goods?.buyPrice ?? 1000),
                         sellPrice: round2(parsedBusiness.goods?.sellPrice ?? 1100)
+                    },
+                    staff: {
+                        employees: Number(parsedBusiness.staff?.employees ?? 0),
+                        salaryPerEmployee: round2(parsedBusiness.staff?.salaryPerEmployee ?? 90),
+                        autoInProgress: Boolean(parsedBusiness.staff?.autoInProgress)
                     }
                 };
             }
@@ -1944,7 +2043,8 @@ function newGame() {
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
-        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
+        goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
+        staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
     };
     monthTick = 0;
     elapsedMonths = 0;
