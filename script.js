@@ -16,6 +16,7 @@ window.addEventListener("load", () => {
         renderRealEstatePage();
         renderBusinessPage();
         renderLoansPage();
+        renderGameTime();
         updateAccount();
         drawChart();
     }
@@ -151,6 +152,7 @@ function createDefaultRealEstates() {
 let realEstates = createDefaultRealEstates();
 
 let monthTick = 0;
+let elapsedMonths = 0;
 let loanState = {
     principal: 0,
     totalDue: 0,
@@ -269,9 +271,11 @@ function updatePrice() {
     monthTick++;
     if (monthTick >= DIVIDEND_PERIOD_TICKS) {
         monthTick = 0;
+        elapsedMonths += 1;
         processRealEstateMonth();
         processBusinessMonth();
         processLoanMonth();
+        renderGameTime();
     }
 
     Object.entries(assets).forEach(([assetKey, asset]) => {
@@ -1094,6 +1098,17 @@ function renderBusinessPage() {
     grid.appendChild(card);
 }
 
+function renderGameTime() {
+    const el = document.getElementById("gameTime");
+    if (!el) return;
+
+    const years = Math.floor(elapsedMonths / 12);
+    const months = elapsedMonths % 12;
+    const yearPart = years > 0 ? `${years} ${years === 1 ? "rok" : years < 5 ? "roky" : "let"}` : "";
+    const monthPart = `${months} ${months === 1 ? "měsíc" : months < 5 ? "měsíce" : "měsíců"}`;
+    el.innerText = yearPart ? `${yearPart} a ${monthPart}` : monthPart;
+}
+
 function renderTransactionHistory() {
     const container = document.getElementById("transactionHistory");
     if (!container) return;
@@ -1456,6 +1471,7 @@ function buildSaveText() {
     text += "=== ACCOUNT ===\n";
     text += `Balance: ${balance}\n`;
     text += `NextTradeId: ${tradeId}\n\n`;
+    text += `ElapsedMonths: ${elapsedMonths}\n\n`;
 
     /* ----------------------------------------
        6) Dividendy
@@ -1581,6 +1597,7 @@ function parseImportedData(text, options = {}) {
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
     };
     monthTick = 0;
+    elapsedMonths = 0;
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
 
@@ -1634,6 +1651,9 @@ function parseImportedData(text, options = {}) {
 
         let tradeIdMatch = secAccount.match(/NextTradeId:\s*([0-9]+)/);
         if (tradeIdMatch) tradeId = Number(tradeIdMatch[1]);
+
+        let elapsedMonthsMatch = secAccount.match(/ElapsedMonths:\s*([0-9]+)/);
+        if (elapsedMonthsMatch) elapsedMonths = Number(elapsedMonthsMatch[1]);
     }
 
     /* ----- TRANSACTION HISTORY ----- */
@@ -1820,6 +1840,7 @@ function parseImportedData(text, options = {}) {
     renderRealEstatePage();
     renderBusinessPage();
     renderLoansPage();
+    renderGameTime();
 
     if (!silent) alert("Data byla úspěšně načtena.");
 }
@@ -1873,6 +1894,7 @@ function newGame() {
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
     };
     monthTick = 0;
+    elapsedMonths = 0;
     candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
@@ -1905,6 +1927,7 @@ function newGame() {
     renderRealEstatePage();
     renderBusinessPage();
     renderLoansPage();
+    renderGameTime();
 }
 
 function syncIndicatorCheckboxes() {
