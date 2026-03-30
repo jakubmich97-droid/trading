@@ -110,6 +110,7 @@ function createDefaultRealEstates() {
             value: 3500000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 10000,
+            rentIncreaseBuffer: 0,
             maintenance: 0,
             owned: 0
         },
@@ -118,6 +119,7 @@ function createDefaultRealEstates() {
             value: 5000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 15000,
+            rentIncreaseBuffer: 0,
             maintenance: 0,
             owned: 0
         },
@@ -126,6 +128,7 @@ function createDefaultRealEstates() {
             value: 10000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 30000,
+            rentIncreaseBuffer: 0,
             maintenance: 0,
             owned: 0
         },
@@ -134,6 +137,7 @@ function createDefaultRealEstates() {
             value: 0,
             growthRate: LAND_GROWTH_RATE,
             monthlyRent: 0,
+            rentIncreaseBuffer: 0,
             maintenance: 0,
             owned: 0
         }
@@ -194,6 +198,10 @@ function getAssetPrice(assetKey) {
 
 function round2(value) {
     return Math.round(Number(value) * 100) / 100;
+}
+
+function formatCurrencyInt(value) {
+    return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} Kč`;
 }
 
 function addTransaction(label, amount) {
@@ -813,7 +821,14 @@ function processRealEstateMonth() {
 
     Object.values(realEstates).forEach(item => {
         item.value = round2(item.value * (1 + item.growthRate));
-        item.monthlyRent = round2(item.monthlyRent * (1 + item.growthRate));
+        if (typeof item.rentIncreaseBuffer !== "number") item.rentIncreaseBuffer = 0;
+        const rentIncrease = item.monthlyRent * item.growthRate;
+        item.rentIncreaseBuffer = round2(item.rentIncreaseBuffer + rentIncrease);
+        const rentStepCount = Math.floor(item.rentIncreaseBuffer / 500);
+        if (rentStepCount > 0) {
+            item.monthlyRent = round2(item.monthlyRent + rentStepCount * 500);
+            item.rentIncreaseBuffer = round2(item.rentIncreaseBuffer - rentStepCount * 500);
+        }
         if (item.owned > 0 && item.monthlyRent > 0) {
             rentIncome += item.owned * item.monthlyRent;
         }
@@ -973,10 +988,10 @@ function renderRealEstatePage() {
         card.className = "realestate-card";
         card.innerHTML = `
             <h3>${item.name}</h3>
-            <p>Aktuální hodnota: <strong>${item.value.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Aktuální hodnota: <strong>${formatCurrencyInt(item.value)}</strong></p>
             <p>Vlastním: <strong>${item.owned}</strong></p>
-            <p>Měsíční nájem: <strong>${item.monthlyRent.toLocaleString("cs-CZ")} Kč</strong></p>
-            <p>Údržba: <strong>${item.maintenance.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Měsíční nájem: <strong>${formatCurrencyInt(item.monthlyRent)}</strong></p>
+            <p>Údržba: <strong>${formatCurrencyInt(item.maintenance)}</strong></p>
             <div class="toolbar">
                 <button class="buy-btn" onclick="buyRealEstate('${key}')">Koupit</button>
                 <button class="sell-btn" onclick="sellRealEstate('${key}')">Prodat</button>
@@ -1278,10 +1293,10 @@ function updateAccount() {
     let invested = calculateInvestedCapital();
     let total = balance + invested + unreal;
 
-    document.getElementById("balance").innerText = balance.toFixed(2);
-    document.getElementById("invested").innerText = invested.toFixed(2);
-    document.getElementById("unrealized").innerText = unreal.toFixed(2);
-    document.getElementById("total").innerText = total.toFixed(2);
+    document.getElementById("balance").innerText = formatCurrencyInt(balance);
+    document.getElementById("invested").innerText = formatCurrencyInt(invested);
+    document.getElementById("unrealized").innerText = formatCurrencyInt(unreal);
+    document.getElementById("total").innerText = formatCurrencyInt(total);
 
     const last = accountHistory[accountHistory.length - 1];
     if (!last || Math.abs(last.total - total) > 0.009) {
