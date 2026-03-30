@@ -98,6 +98,30 @@ let assets = {
         volatility: 0.10,
         damping: 0.96,
         dividendRate: DIVIDEND_RATE
+    },
+    growth2: {
+        name: "GrowthNext",
+        price: 120,
+        velocity: 0,
+        candles: generateFlatCandles(120),
+        tick: 0,
+        dividendTick: 0,
+        tradeMarkers: [],
+        volatility: 0.28,
+        damping: 0.91,
+        dividendRate: 0
+    },
+    dividend2: {
+        name: "StableDiv Plus",
+        price: 90,
+        velocity: 0,
+        candles: generateFlatCandles(90),
+        tick: 0,
+        dividendTick: 0,
+        tradeMarkers: [],
+        volatility: 0.10,
+        damping: 0.96,
+        dividendRate: DIVIDEND_RATE
     }
 };
 Object.values(assets).forEach(a => {
@@ -1615,7 +1639,7 @@ function parseImportedData(text, options = {}) {
 
     /* ----- ACTIVE ASSET ----- */
     let secActiveAsset = getSection("ACTIVE ASSET");
-    let activeAssetMatch = secActiveAsset.match(/Asset:\s*(growth|dividend)/);
+    let activeAssetMatch = secActiveAsset.match(/Asset:\s*(growth|dividend|growth2|dividend2)/);
     if (activeAssetMatch) currentAsset = activeAssetMatch[1];
 
     /* ----- ASSET STATES ----- */
@@ -1624,7 +1648,7 @@ function parseImportedData(text, options = {}) {
         try {
             const parsedAssets = JSON.parse(secAssetStates);
             if (parsedAssets?.growth && parsedAssets?.dividend) {
-                assets = parsedAssets;
+                assets = { ...assets, ...parsedAssets };
             }
         } catch {
             // fallback to legacy format
@@ -1767,7 +1791,7 @@ function parseImportedData(text, options = {}) {
             if (b.includes("Type")) {
                 let t = {};
                 t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
-                t.asset = b.match(/Asset:\s*(growth|dividend)/)?.[1] || currentAsset;
+                t.asset = b.match(/Asset:\s*(growth|dividend|growth2|dividend2)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.sl = Number(b.match(/SL:\s*([0-9.]+)/)?.[1]);
@@ -1790,7 +1814,7 @@ function parseImportedData(text, options = {}) {
             if (b.includes("Type")) {
                 let t = {};
                 t.id = Number(b.match(/ID:\s*([0-9]+)/)?.[1]);
-                t.asset = b.match(/Asset:\s*(growth|dividend)/)?.[1] || currentAsset;
+                t.asset = b.match(/Asset:\s*(growth|dividend|growth2|dividend2)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.exitPrice = Number(b.match(/Exit:\s*([0-9.]+)/)?.[1]);
@@ -1873,6 +1897,30 @@ function newGame() {
             price: 80,
             velocity: 0,
             candles: generateInitialCandles(80),
+            tick: 0,
+            dividendTick: 0,
+            tradeMarkers: [],
+            volatility: 0.10,
+            damping: 0.96,
+            dividendRate: DIVIDEND_RATE
+        },
+        growth2: {
+            name: "GrowthNext",
+            price: 120,
+            velocity: 0,
+            candles: generateInitialCandles(120),
+            tick: 0,
+            dividendTick: 0,
+            tradeMarkers: [],
+            volatility: 0.28,
+            damping: 0.91,
+            dividendRate: 0
+        },
+        dividend2: {
+            name: "StableDiv Plus",
+            price: 90,
+            velocity: 0,
+            candles: generateInitialCandles(90),
             tick: 0,
             dividendTick: 0,
             tradeMarkers: [],
