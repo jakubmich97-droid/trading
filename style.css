@@ -471,6 +471,19 @@ select {
     padding: 12px;
 }
 
+.entity-image {
+    width: 100%;
+    max-width: 340px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    justify-self: center;
+    display: block;
+    margin: 0 auto 8px;
+    background: rgba(15, 23, 42, 0.6);
+}
+
 @media (max-width: 820px) {
     .input-grid {
         grid-template-columns: 1fr;

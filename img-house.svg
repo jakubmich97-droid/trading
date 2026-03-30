@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0f172a"/>
+  <polygon points="120,170 320,40 520,170" fill="#7c2d12"/>
+  <rect x="150" y="170" width="340" height="150" fill="#a16207"/>
+  <rect x="190" y="210" width="60" height="60" fill="#dbeafe"/>
+  <rect x="390" y="210" width="60" height="60" fill="#dbeafe"/>
+  <rect x="285" y="230" width="70" height="90" fill="#78350f"/>
+  <text x="320" y="340" fill="#f8fafc" font-size="30" text-anchor="middle" font-family="Arial">Dům</text>
+</svg>

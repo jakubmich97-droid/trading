@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0f172a"/>
+  <rect x="90" y="120" width="220" height="180" fill="#334155"/>
+  <rect x="130" y="80" width="140" height="60" fill="#475569"/>
+  <rect x="130" y="170" width="40" height="40" fill="#93c5fd"/>
+  <rect x="190" y="170" width="40" height="40" fill="#93c5fd"/>
+  <rect x="250" y="220" width="40" height="80" fill="#1e293b"/>
+  <text x="320" y="320" fill="#e2e8f0" font-size="34" text-anchor="middle" font-family="Arial">Malý byt</text>
+</svg>

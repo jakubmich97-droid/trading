@@ -107,6 +107,7 @@ function createDefaultRealEstates() {
     return {
         small_apartment: {
             name: "Malý byt",
+            image: "img-small-apartment.svg",
             value: 3500000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 10000,
@@ -116,6 +117,7 @@ function createDefaultRealEstates() {
         },
         medium_apartment: {
             name: "Střední byt",
+            image: "img-medium-apartment.svg",
             value: 5000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 15000,
@@ -125,6 +127,7 @@ function createDefaultRealEstates() {
         },
         commercial: {
             name: "Komerční prostory",
+            image: "img-commercial.svg",
             value: 10000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 30000,
@@ -134,6 +137,7 @@ function createDefaultRealEstates() {
         },
         house: {
             name: "Dům (upřesníš později)",
+            image: "img-house.svg",
             value: 0,
             growthRate: LAND_GROWTH_RATE,
             monthlyRent: 0,
@@ -157,6 +161,7 @@ let selectedLoanAmount = 0;
 let businessState = {
     shop: {
         name: "E-shop",
+        image: "img-eshop.svg",
         value: 200000,
         owned: 0
     },
@@ -1043,6 +1048,7 @@ function renderRealEstatePage() {
         const card = document.createElement("div");
         card.className = "realestate-card";
         card.innerHTML = `
+            <img src="${item.image || "img-house.svg"}" alt="${item.name}" class="entity-image">
             <h3>${item.name}</h3>
             <p>Aktuální hodnota: <strong>${formatCurrencyInt(item.value)}</strong></p>
             <p>Vlastním: <strong>${item.owned}</strong></p>
@@ -1068,6 +1074,7 @@ function renderBusinessPage() {
     const card = document.createElement("div");
     card.className = "realestate-card";
     card.innerHTML = `
+        <img src="${shop.image || "img-eshop.svg"}" alt="${shop.name}" class="entity-image">
         <h3>${shop.name}</h3>
         <p>Aktuální hodnota: <strong>${shop.value.toLocaleString("cs-CZ")} Kč</strong></p>
         <p>Vlastním: <strong>${shop.owned}</strong></p>
@@ -1570,7 +1577,7 @@ function parseImportedData(text, options = {}) {
     accountHistory = [];
     realEstates = createDefaultRealEstates();
     businessState = {
-        shop: { name: "E-shop", value: 200000, owned: 0 },
+        shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
     };
     monthTick = 0;
@@ -1692,6 +1699,7 @@ function parseImportedData(text, options = {}) {
                 businessState = {
                     shop: {
                         name: parsedBusiness.shop?.name || "E-shop",
+                        image: parsedBusiness.shop?.image || "img-eshop.svg",
                         value: round2(parsedBusiness.shop?.value ?? 200000),
                         owned: Number(parsedBusiness.shop?.owned ?? 0)
                     },
@@ -1861,7 +1869,7 @@ function newGame() {
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
-        shop: { name: "E-shop", value: 200000, owned: 0 },
+        shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 }
     };
     monthTick = 0;
