@@ -200,6 +200,22 @@ button:active {
     color: #fff;
 }
 
+.loan-option {
+    text-align: left;
+    min-width: 190px;
+}
+
+.loan-option-amount {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.loan-option-installment {
+    font-size: 0.78rem;
+    opacity: 0.88;
+    margin-top: 2px;
+}
+
 button.danger {
     background: linear-gradient(180deg, #dc2626, #7f1d1d);
 }

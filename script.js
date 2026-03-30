@@ -1004,7 +1004,12 @@ function renderLoansPage() {
     options.forEach(opt => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.textContent = formatCurrencyInt(opt.amount);
+        btn.classList.add("loan-option");
+        const installment = round2((opt.amount * 1.05) / 60);
+        btn.innerHTML = `
+            <div class="loan-option-amount">${formatCurrencyInt(opt.amount)}</div>
+            <div class="loan-option-installment">Splátka: ${formatCurrencyInt(installment)} / měsíc</div>
+        `;
         btn.disabled = opt.amount <= 0 || loanState.remainingInstallments > 0;
         if (opt.amount === selectedLoanAmount && opt.amount > 0) btn.classList.add("active");
         btn.onclick = () => selectLoanOffer(opt.percent);
