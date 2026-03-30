@@ -238,7 +238,7 @@ function round2(value) {
 }
 
 function formatCurrencyInt(value) {
-    return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} Kč`;
+    return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} <img src="coin.svg" alt="coin" class="coin-inline">`;
 }
 
 function roundDownToHundreds(value) {
@@ -925,6 +925,7 @@ function processRealEstateMonth() {
 
 function buyBusinessShop() {
     const shop = businessState.shop;
+    if (shop.owned >= 1) return alert("Můžeš vlastnit pouze jeden e-shop.");
     if (shop.value <= 0) return alert("Cena e-shopu zatím není nastavena.");
     if (balance < shop.value) return alert("Nedostatek volných prostředků.");
 
@@ -951,8 +952,13 @@ function sellBusinessShop() {
 
 function hireEmployee() {
     if (businessState.shop.owned <= 0) return alert("Nejdřív musíš vlastnit e-shop.");
+    const hireCost = 10000;
+    if (balance < hireCost) return alert("Nedostatek volných prostředků na nábor zaměstnance.");
+    balance = round2(balance - hireCost);
+    addTransaction("Nábor zaměstnance (e-shop)", -hireCost);
     businessState.staff.employees += 1;
     renderBusinessPage();
+    updateAccount();
 }
 
 function fireEmployee() {
@@ -1105,7 +1111,7 @@ function renderLoansPage() {
     }));
 
     if (selectedLoanAmount > maxLoan || selectedLoanAmount < 0) selectedLoanAmount = 0;
-    maxEl.innerText = formatCurrencyInt(maxLoan);
+    maxEl.innerHTML = formatCurrencyInt(maxLoan);
     presetEl.innerHTML = "";
 
     options.forEach(opt => {
@@ -1151,7 +1157,7 @@ function applyAutomaticOverdraftLoan() {
 
     balance = 0;
     addTransaction("Automatická půjčka", needed);
-    alert(`Volné prostředky šly do mínusu. Byla automaticky poskytnuta půjčka ${needed.toFixed(2)} Kč s úrokem 10 %.`);
+    alert(`Volné prostředky šly do mínusu. Byla automaticky poskytnuta půjčka ${needed.toFixed(2)} 🪙 s úrokem 10 %.`);
     renderLoansPage();
 }
 
@@ -1192,6 +1198,7 @@ function renderBusinessPage() {
 
     const card = document.createElement("div");
     card.className = "realestate-card";
+    const canBuyShop = shop.owned < 1;
     card.innerHTML = `
         <img src="${shop.image || "img-eshop.svg"}" alt="${shop.name}" class="entity-image">
         <h3>${shop.name}</h3>
@@ -1203,7 +1210,7 @@ function renderBusinessPage() {
         <p>Zboží: <strong>${goods.inProgress ? (goods.readyToSell ? "Připraveno k prodeji" : "Nakoupeno, čeká na měsíc") : "Žádné"} </strong></p>
         <p>Nákup zboží (manuálně): <strong>${formatCurrencyInt(goods.buyPrice)}</strong> | Prodej: <strong>${formatCurrencyInt(goods.sellPrice)}</strong></p>
         <div class="toolbar">
-            <button class="buy-btn" onclick="buyBusinessShop()">Koupit e-shop</button>
+            <button class="buy-btn" onclick="buyBusinessShop()" ${canBuyShop ? "" : "disabled"}>Koupit e-shop</button>
             <button class="sell-btn" onclick="sellBusinessShop()">Prodat e-shop</button>
         </div>
         ${shop.owned > 0 ? `
@@ -1493,10 +1500,10 @@ function updateAccount() {
     let invested = calculateInvestedCapital();
     let total = balance + invested + unreal;
 
-    document.getElementById("balance").innerText = formatCurrencyInt(balance);
-    document.getElementById("invested").innerText = formatCurrencyInt(invested);
-    document.getElementById("unrealized").innerText = formatCurrencyInt(unreal);
-    document.getElementById("total").innerText = formatCurrencyInt(total);
+    document.getElementById("balance").innerHTML = formatCurrencyInt(balance);
+    document.getElementById("invested").innerHTML = formatCurrencyInt(invested);
+    document.getElementById("unrealized").innerHTML = formatCurrencyInt(unreal);
+    document.getElementById("total").innerHTML = formatCurrencyInt(total);
 
     const last = accountHistory[accountHistory.length - 1];
     if (!last || Math.abs(last.total - total) > 0.009) {
@@ -1844,7 +1851,7 @@ function parseImportedData(text, options = {}) {
                         name: parsedBusiness.shop?.name || "E-shop",
                         image: parsedBusiness.shop?.image || "img-eshop.svg",
                         value: round2(parsedBusiness.shop?.value ?? 200000),
-                        owned: Number(parsedBusiness.shop?.owned ?? 0)
+                        owned: Math.min(1, Number(parsedBusiness.shop?.owned ?? 0))
                     },
                     goods: {
                         inProgress: Boolean(parsedBusiness.goods?.inProgress),
