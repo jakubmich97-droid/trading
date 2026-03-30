@@ -195,6 +195,11 @@ button:active {
     transform: translateY(1px);
 }
 
+.toolbar button.active {
+    background: linear-gradient(180deg, #0ea5e9, #1d4ed8);
+    color: #fff;
+}
+
 button.danger {
     background: linear-gradient(180deg, #dc2626, #7f1d1d);
 }

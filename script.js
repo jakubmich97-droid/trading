@@ -153,6 +153,7 @@ let loanState = {
     monthlyPayment: 0,
     remainingInstallments: 0
 };
+let selectedLoanAmount = 0;
 let businessState = {
     shop: {
         name: "E-shop",
@@ -202,6 +203,10 @@ function round2(value) {
 
 function formatCurrencyInt(value) {
     return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} Kč`;
+}
+
+function roundDownToHundreds(value) {
+    return Math.floor((Number(value) || 0) / 100) * 100;
 }
 
 function addTransaction(label, amount) {
@@ -924,8 +929,8 @@ function processLoanMonth() {
 }
 
 function borrowLoan() {
-    const amount = Number(document.getElementById("loanAmount")?.value || 0);
-    const maxLoan = balance * 100;
+    const maxLoan = roundDownToHundreds(balance * 100);
+    const amount = roundDownToHundreds(selectedLoanAmount);
     if (!amount || amount <= 0) return alert("Neplatná výše půjčky.");
     if (loanState.remainingInstallments > 0) return alert("Nejdřív doplať stávající půjčku.");
     if (amount > maxLoan) return alert("Překročen maximální limit půjčky.");
@@ -937,26 +942,77 @@ function borrowLoan() {
 
     balance = round2(balance + loanState.principal);
     addTransaction("Přijatá půjčka", loanState.principal);
+    selectedLoanAmount = 0;
     renderLoansPage();
     updateAccount();
+}
+
+function repayLoan() {
+    if (loanState.remainingInstallments <= 0) return alert("Nemáš aktivní půjčku.");
+    const amountToRepay = round2(loanState.totalDue);
+    if (balance < amountToRepay) return alert("Na splacení půjčky nemáš dostatek volných prostředků.");
+
+    balance = round2(balance - amountToRepay);
+    addTransaction("Předčasné splacení půjčky", -amountToRepay);
+    loanState = {
+        principal: 0,
+        totalDue: 0,
+        monthlyPayment: 0,
+        remainingInstallments: 0
+    };
+    selectedLoanAmount = 0;
+    renderLoansPage();
+    updateAccount();
+}
+
+function selectLoanOffer(percent) {
+    const maxLoan = roundDownToHundreds(balance * 100);
+    selectedLoanAmount = roundDownToHundreds(maxLoan * percent);
+    renderLoansPage();
 }
 
 function renderLoansPage() {
     const maxEl = document.getElementById("loanMaxValue");
     const infoEl = document.getElementById("loanInfo");
-    if (!maxEl || !infoEl) return;
+    const presetEl = document.getElementById("loanPresetButtons");
+    if (!maxEl || !infoEl || !presetEl) return;
 
-    maxEl.innerText = `${Math.round(balance * 100).toLocaleString("cs-CZ")} Kč`;
+    const maxLoan = roundDownToHundreds(balance * 100);
+    const options = [
+        { key: "max", percent: 1.0 },
+        { key: "75", percent: 0.75 },
+        { key: "50", percent: 0.5 },
+        { key: "25", percent: 0.25 }
+    ].map(o => ({
+        ...o,
+        amount: roundDownToHundreds(maxLoan * o.percent)
+    }));
+
+    if (selectedLoanAmount > maxLoan || selectedLoanAmount < 0) selectedLoanAmount = 0;
+    maxEl.innerText = formatCurrencyInt(maxLoan);
+    presetEl.innerHTML = "";
+
+    options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = formatCurrencyInt(opt.amount);
+        btn.disabled = opt.amount <= 0 || loanState.remainingInstallments > 0;
+        if (opt.amount === selectedLoanAmount && opt.amount > 0) btn.classList.add("active");
+        btn.onclick = () => selectLoanOffer(opt.percent);
+        presetEl.appendChild(btn);
+    });
 
     if (loanState.remainingInstallments > 0) {
         infoEl.innerHTML = `
-            <p>Aktivní půjčka: <strong>${loanState.principal.toLocaleString("cs-CZ")} Kč</strong></p>
-            <p>Celkem k úhradě: <strong>${loanState.totalDue.toLocaleString("cs-CZ")} Kč</strong></p>
-            <p>Měsíční splátka: <strong>${loanState.monthlyPayment.toLocaleString("cs-CZ")} Kč</strong></p>
+            <p>Aktivní půjčka: <strong>${formatCurrencyInt(loanState.principal)}</strong></p>
+            <p>Celkem k úhradě: <strong>${formatCurrencyInt(loanState.totalDue)}</strong></p>
+            <p>Měsíční splátka: <strong>${formatCurrencyInt(loanState.monthlyPayment)}</strong></p>
             <p>Zbývá splátek: <strong>${loanState.remainingInstallments}</strong></p>
         `;
     } else {
-        infoEl.innerHTML = "<p>Momentálně nemáš aktivní půjčku.</p>";
+        infoEl.innerHTML = selectedLoanAmount > 0
+            ? `<p>Vybraná částka půjčky: <strong>${formatCurrencyInt(selectedLoanAmount)}</strong></p>`
+            : "<p>Momentálně nemáš aktivní půjčku.</p>";
     }
 }
 
