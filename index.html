@@ -15,6 +15,7 @@
   <button id="navLoans" class="nav-btn" onclick="openLoans()">💳 Půjčky</button>
   <button id="navPortfolio" class="nav-btn" onclick="openPortfolio()">📊 Portfolio</button>
   <button id="navAccountHistory" class="nav-btn" onclick="openAccountHistory()">📈 Stav účtu</button>
+  <button id="navMilestones" class="nav-btn" onclick="openMilestones()">🏁 Milníky</button>
 </aside>
 
 <div class="app-shell">
@@ -148,6 +149,22 @@
         <button onclick="openTrading()">⬅ Zpět na Trading</button>
       </div>
       <div id="businessGrid" class="realestate-grid"></div>
+    </div>
+  </section>
+
+  <section id="milestonesPage" class="portfolio-page hidden">
+    <div class="card portfolio-card">
+      <div class="portfolio-header">
+        <h2>Milníky</h2>
+        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+      </div>
+      <div class="realestate-card">
+        <p>První milník: vydělat <strong>10 000 💵</strong></p>
+        <div class="milestone-progress-wrap">
+          <div id="milestoneProgressBar" class="milestone-progress-bar"></div>
+        </div>
+        <p id="milestoneProgressText">0 / 10 000 💵</p>
+      </div>
     </div>
   </section>
 </main>

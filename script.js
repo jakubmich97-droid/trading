@@ -47,6 +47,7 @@ const AUTOSAVE_INTERVAL = 2000;
 const DIVIDEND_RATE = 0.025;
 const DIVIDEND_PERIOD_TICKS = 12;
 const MAX_CANDLES = 75;
+const STARTING_CAPITAL = 10000;
 const REAL_ESTATE_GROWTH_RATE = 0.0003;
 const LAND_GROWTH_RATE = 0.00015;
 
@@ -177,6 +178,10 @@ let realEstates = createDefaultRealEstates();
 
 let monthTick = 0;
 let elapsedMonths = 0;
+let milestonesState = {
+    firstTarget: 10000,
+    firstReached: false
+};
 let loanState = {
     principal: 0,
     totalDue: 0,
@@ -1238,6 +1243,23 @@ function renderGameTime() {
     el.innerText = yearPart ? `${yearPart} a ${monthPart}` : monthPart;
 }
 
+function renderMilestones(currentProfit = null) {
+    const bar = document.getElementById("milestoneProgressBar");
+    const text = document.getElementById("milestoneProgressText");
+    if (!bar || !text) return;
+
+    const profit = currentProfit == null ? 0 : currentProfit;
+    const clamped = Math.max(0, Math.min(milestonesState.firstTarget, profit));
+    const progressPct = (clamped / milestonesState.firstTarget) * 100;
+    bar.style.width = `${progressPct}%`;
+    text.innerHTML = `${formatCurrencyInt(clamped)} / ${formatCurrencyInt(milestonesState.firstTarget)}`;
+
+    if (!milestonesState.firstReached && profit >= milestonesState.firstTarget) {
+        milestonesState.firstReached = true;
+        alert("🎉 Gratulace! Dosáhl jsi prvního milníku: 10 000 💵 vydělaných peněz.");
+    }
+}
+
 function renderTransactionHistory() {
     const container = document.getElementById("transactionHistory");
     if (!container) return;
@@ -1268,6 +1290,7 @@ function openPortfolio() {
     document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
+    document.getElementById("milestonesPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
     drawPortfolioChart();
@@ -1284,6 +1307,7 @@ function openAccountHistory() {
     document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
+    document.getElementById("milestonesPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.remove("hidden");
     drawAccountHistoryChart();
 }
@@ -1299,6 +1323,7 @@ function setActiveNav(activeId) {
     document.getElementById("navLoans")?.classList.remove("active");
     document.getElementById("navPortfolio")?.classList.remove("active");
     document.getElementById("navAccountHistory")?.classList.remove("active");
+    document.getElementById("navMilestones")?.classList.remove("active");
     document.getElementById(activeId)?.classList.add("active");
 }
 
@@ -1307,6 +1332,7 @@ function setMainCardView(view) {
     const realEstatePage = document.getElementById("realEstatePage");
     const businessPage = document.getElementById("businessPage");
     const loansPage = document.getElementById("loansPage");
+    const milestonesPage = document.getElementById("milestonesPage");
     const assetsSidebarCard = document.getElementById("assetsSidebarCard");
     const appShell = document.querySelector(".app-shell");
 
@@ -1314,6 +1340,7 @@ function setMainCardView(view) {
     realEstatePage?.classList.toggle("hidden", view !== "realestate");
     businessPage?.classList.toggle("hidden", view !== "business");
     loansPage?.classList.toggle("hidden", view !== "loans");
+    milestonesPage?.classList.toggle("hidden", view !== "milestones");
     assetsSidebarCard?.classList.toggle("hidden", view !== "trading");
     appShell?.classList.toggle("no-assets-layout", view !== "trading");
 }
@@ -1351,6 +1378,15 @@ function openLoans() {
     document.querySelector(".app-shell")?.classList.remove("hidden");
     setMainCardView("loans");
     renderLoansPage();
+}
+
+function openMilestones() {
+    setActiveNav("navMilestones");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+    setMainCardView("milestones");
+    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
 }
 
 function drawPortfolioChart() {
@@ -1499,11 +1535,13 @@ function updateAccount() {
     let unreal = calculateUnrealized();
     let invested = calculateInvestedCapital();
     let total = balance + invested + unreal;
+    const earnedProfit = round2(total - STARTING_CAPITAL);
 
     document.getElementById("balance").innerHTML = formatCurrencyInt(balance);
     document.getElementById("invested").innerHTML = formatCurrencyInt(invested);
     document.getElementById("unrealized").innerHTML = formatCurrencyInt(unreal);
     document.getElementById("total").innerHTML = formatCurrencyInt(total);
+    renderMilestones(earnedProfit);
 
     const last = accountHistory[accountHistory.length - 1];
     if (!last || Math.abs(last.total - total) > 0.009) {
@@ -1601,6 +1639,9 @@ function buildSaveText() {
     text += `Balance: ${balance}\n`;
     text += `NextTradeId: ${tradeId}\n\n`;
     text += `ElapsedMonths: ${elapsedMonths}\n\n`;
+
+    text += "=== MILESTONES ===\n";
+    text += `${JSON.stringify(milestonesState)}\n\n`;
 
     /* ----------------------------------------
        6) Dividendy
@@ -1720,6 +1761,7 @@ function parseImportedData(text, options = {}) {
     tradeMarkers = [];
     transactionHistory = [];
     accountHistory = [];
+    milestonesState = { firstTarget: 10000, firstReached: false };
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
@@ -1784,6 +1826,22 @@ function parseImportedData(text, options = {}) {
 
         let elapsedMonthsMatch = secAccount.match(/ElapsedMonths:\s*([0-9]+)/);
         if (elapsedMonthsMatch) elapsedMonths = Number(elapsedMonthsMatch[1]);
+    }
+
+    /* ----- MILESTONES ----- */
+    let secMilestones = getSection("MILESTONES");
+    if (secMilestones) {
+        try {
+            const parsedMilestones = JSON.parse(secMilestones.split("\n")[0]);
+            if (parsedMilestones && typeof parsedMilestones === "object") {
+                milestonesState = {
+                    firstTarget: round2(parsedMilestones.firstTarget ?? 10000),
+                    firstReached: Boolean(parsedMilestones.firstReached)
+                };
+            }
+        } catch {
+            // keep defaults
+        }
     }
 
     /* ----- TRANSACTION HISTORY ----- */
@@ -2046,6 +2104,7 @@ function newGame() {
     tradeId = 1;
     transactionHistory = [];
     accountHistory = [];
+    milestonesState = { firstTarget: 10000, firstReached: false };
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
@@ -2087,6 +2146,7 @@ function newGame() {
     renderRealEstatePage();
     renderBusinessPage();
     renderLoansPage();
+    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
     renderGameTime();
 }
 
