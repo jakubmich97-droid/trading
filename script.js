@@ -1260,6 +1260,20 @@ function renderMilestones(currentProfit = null) {
     }
 }
 
+function applyCheatBalance() {
+    const input = document.getElementById("cheatBalanceInput");
+    const value = Number(input?.value ?? NaN);
+    if (!Number.isFinite(value) || value < 0) return alert("Zadej platnou nezápornou částku.");
+
+    const delta = round2(value - balance);
+    balance = round2(value);
+    addTransaction("Cheat: změna volných prostředků", delta);
+    updateAccount();
+    renderLoansPage();
+    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+    if (input) input.value = "";
+}
+
 function renderTransactionHistory() {
     const container = document.getElementById("transactionHistory");
     if (!container) return;
@@ -1291,6 +1305,7 @@ function openPortfolio() {
     document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("milestonesPage")?.classList.add("hidden");
+    document.getElementById("cheatsPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.remove("hidden");
     drawPortfolioChart();
@@ -1308,6 +1323,7 @@ function openAccountHistory() {
     document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
     document.getElementById("milestonesPage")?.classList.add("hidden");
+    document.getElementById("cheatsPage")?.classList.add("hidden");
     document.getElementById("accountHistoryPage")?.classList.remove("hidden");
     drawAccountHistoryChart();
 }
@@ -1324,6 +1340,7 @@ function setActiveNav(activeId) {
     document.getElementById("navPortfolio")?.classList.remove("active");
     document.getElementById("navAccountHistory")?.classList.remove("active");
     document.getElementById("navMilestones")?.classList.remove("active");
+    document.getElementById("navCheats")?.classList.remove("active");
     document.getElementById(activeId)?.classList.add("active");
 }
 
@@ -1333,6 +1350,7 @@ function setMainCardView(view) {
     const businessPage = document.getElementById("businessPage");
     const loansPage = document.getElementById("loansPage");
     const milestonesPage = document.getElementById("milestonesPage");
+    const cheatsPage = document.getElementById("cheatsPage");
     const assetsSidebarCard = document.getElementById("assetsSidebarCard");
     const appShell = document.querySelector(".app-shell");
 
@@ -1341,6 +1359,7 @@ function setMainCardView(view) {
     businessPage?.classList.toggle("hidden", view !== "business");
     loansPage?.classList.toggle("hidden", view !== "loans");
     milestonesPage?.classList.toggle("hidden", view !== "milestones");
+    cheatsPage?.classList.toggle("hidden", view !== "cheats");
     assetsSidebarCard?.classList.toggle("hidden", view !== "trading");
     appShell?.classList.toggle("no-assets-layout", view !== "trading");
 }
@@ -1387,6 +1406,14 @@ function openMilestones() {
     document.querySelector(".app-shell")?.classList.remove("hidden");
     setMainCardView("milestones");
     renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+}
+
+function openCheats() {
+    setActiveNav("navCheats");
+    document.getElementById("portfolioPage")?.classList.add("hidden");
+    document.getElementById("accountHistoryPage")?.classList.add("hidden");
+    document.querySelector(".app-shell")?.classList.remove("hidden");
+    setMainCardView("cheats");
 }
 
 function drawPortfolioChart() {
