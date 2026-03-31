@@ -352,6 +352,10 @@ select {
     overflow: auto;
 }
 
+.assets-sidebar.align-chart {
+    margin-top: 260px;
+}
+
 #assetsSidebar {
     display: grid;
     gap: 8px;
@@ -555,6 +559,7 @@ select {
     .assets-sidebar {
         position: static;
         max-height: none;
+        margin-top: 0;
     }
 
     .side-nav {
