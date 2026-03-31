@@ -1442,7 +1442,8 @@ function openCheats() {
 function drawDonutChart(canvas, legend, title, slices) {
     if (!canvas || !legend) return;
     const ctxPie = canvas.getContext("2d");
-    const total = slices.reduce((sum, s) => sum + s.value, 0);
+    const sortedSlices = [...slices].sort((a, b) => b.value - a.value);
+    const total = sortedSlices.reduce((sum, s) => sum + s.value, 0);
     ctxPie.clearRect(0, 0, canvas.width, canvas.height);
 
     if (total <= 0) {
@@ -1458,7 +1459,7 @@ function drawDonutChart(canvas, legend, title, slices) {
     const radius = Math.min(canvas.width, canvas.height) * 0.35;
     let start = -Math.PI / 2;
 
-    slices.forEach(slice => {
+    sortedSlices.forEach(slice => {
         const angle = (slice.value / total) * Math.PI * 2;
         const end = start + angle;
         ctxPie.beginPath();
@@ -1482,7 +1483,7 @@ function drawDonutChart(canvas, legend, title, slices) {
     ctxPie.font = "16px Inter, sans-serif";
     ctxPie.fillText(total.toFixed(2), cx, cy + 18);
 
-    legend.innerHTML = slices.map(s => {
+    legend.innerHTML = sortedSlices.map(s => {
         const pct = ((s.value / total) * 100).toFixed(1);
         return `
             <div class="legend-row">
