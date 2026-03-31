@@ -200,6 +200,12 @@ let businessState = {
         value: 200000,
         owned: 0
     },
+    carWash: {
+        name: "Samoobslužná myčka",
+        value: 1000000,
+        monthlyIncome: 10000,
+        owned: 0
+    },
     goods: {
         inProgress: false,
         readyToSell: false,
@@ -982,6 +988,26 @@ function sellBusinessShop() {
     updateAccount();
 }
 
+function buyCarWash() {
+    const item = businessState.carWash;
+    if (balance < item.value) return alert("Nedostatek volných prostředků.");
+    balance = round2(balance - item.value);
+    item.owned += 1;
+    addTransaction("Koupeno: Samoobslužná myčka", -item.value);
+    renderBusinessPage();
+    updateAccount();
+}
+
+function sellCarWash() {
+    const item = businessState.carWash;
+    if (item.owned <= 0) return alert("Samoobslužnou myčku aktuálně nevlastníš.");
+    item.owned -= 1;
+    balance = round2(balance + item.value);
+    addTransaction("Prodáno: Samoobslužná myčka", item.value);
+    renderBusinessPage();
+    updateAccount();
+}
+
 function hireEmployee() {
     if (businessState.shop.owned <= 0) return alert("Nejdřív musíš vlastnit e-shop.");
     const hireCost = 10000;
@@ -1030,6 +1056,12 @@ function sellBusinessGoods() {
 }
 
 function processBusinessMonth() {
+    if (businessState.carWash.owned > 0) {
+        const washIncome = round2(businessState.carWash.owned * businessState.carWash.monthlyIncome);
+        balance = round2(balance + washIncome);
+        addTransaction("Příjem: Samoobslužná myčka", washIncome);
+    }
+
     if (businessState.shop.owned > 0 && businessState.staff.employees > 0) {
         const employees = businessState.staff.employees;
         const salaryTotal = round2(employees * businessState.staff.salaryPerEmployee);
@@ -1258,6 +1290,21 @@ function renderBusinessPage() {
         ` : ""}
     `;
     grid.appendChild(card);
+
+    const wash = businessState.carWash;
+    const washCard = document.createElement("div");
+    washCard.className = "realestate-card";
+    washCard.innerHTML = `
+        <h3>${wash.name}</h3>
+        <p>Pořizovací cena: <strong>${formatCurrencyInt(wash.value)}</strong></p>
+        <p>Měsíční příjem: <strong>${formatCurrencyInt(wash.monthlyIncome)}</strong></p>
+        <p>Vlastním: <strong>${wash.owned}</strong></p>
+        <div class="toolbar">
+            <button class="buy-btn" onclick="buyCarWash()">Koupit myčku</button>
+            <button class="sell-btn" onclick="sellCarWash()">Prodat myčku</button>
+        </div>
+    `;
+    grid.appendChild(washCard);
 }
 
 function renderGameTime() {
@@ -1530,7 +1577,9 @@ function drawPortfolioChart() {
         {
             key: "business",
             name: "Business (E-shop)",
-            value: (businessState.shop?.value || 0) * (businessState.shop?.owned || 0),
+            value:
+                (businessState.shop?.value || 0) * (businessState.shop?.owned || 0) +
+                (businessState.carWash?.value || 0) * (businessState.carWash?.owned || 0),
             color: "#06b6d4"
         }
     ].filter(s => s.value > 0);
@@ -1860,6 +1909,7 @@ function parseImportedData(text, options = {}) {
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
+        carWash: { name: "Samoobslužná myčka", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
         staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
     };
@@ -2021,6 +2071,12 @@ function parseImportedData(text, options = {}) {
                         image: parsedBusiness.shop?.image || "img-eshop.svg",
                         value: round2(parsedBusiness.shop?.value ?? 200000),
                         owned: Math.min(1, Number(parsedBusiness.shop?.owned ?? 0))
+                    },
+                    carWash: {
+                        name: parsedBusiness.carWash?.name || "Samoobslužná myčka",
+                        value: round2(parsedBusiness.carWash?.value ?? 1000000),
+                        monthlyIncome: round2(parsedBusiness.carWash?.monthlyIncome ?? 10000),
+                        owned: Number(parsedBusiness.carWash?.owned ?? 0)
                     },
                     goods: {
                         inProgress: Boolean(parsedBusiness.goods?.inProgress),
@@ -2221,6 +2277,7 @@ function newGame() {
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
+        carWash: { name: "Samoobslužná myčka", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
         staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
     };
