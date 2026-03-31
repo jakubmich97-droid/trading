@@ -238,7 +238,7 @@ function round2(value) {
 }
 
 function formatCurrencyInt(value) {
-    return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} <img src="coin.svg" alt="coin" class="coin-inline">`;
+    return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} 💵`;
 }
 
 function roundDownToHundreds(value) {
@@ -396,10 +396,10 @@ function drawYAxis() {
     const min = Math.min(...lows);
     const range = max - min || 1;
     const ticks = 6;
-    const axisX = canvas.width - 56;
+    const axisX = 56;
 
     ctx.fillStyle = "rgba(2, 6, 23, 0.62)";
-    ctx.fillRect(axisX, 0, 56, canvas.height);
+    ctx.fillRect(0, 0, 56, canvas.height);
 
     ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
     ctx.beginPath();
@@ -416,10 +416,10 @@ function drawYAxis() {
         const value = max - ratio * range;
         ctx.strokeStyle = "rgba(100, 116, 139, 0.25)";
         ctx.beginPath();
-        ctx.moveTo(axisX - 8, y);
-        ctx.lineTo(axisX, y);
+        ctx.moveTo(axisX, y);
+        ctx.lineTo(axisX + 8, y);
         ctx.stroke();
-        ctx.fillText(value.toFixed(2), axisX + 4, y + 4);
+        ctx.fillText(value.toFixed(2), 6, y + 4);
     }
 }
 
@@ -1264,7 +1264,7 @@ function renderTransactionHistory() {
 
 function openPortfolio() {
     setActiveNav("navPortfolio");
-    document.querySelector(".app-shell")?.classList.remove("hidden");
+    document.querySelector(".app-shell")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("businessPage")?.classList.add("hidden");
     document.getElementById("loansPage")?.classList.add("hidden");
@@ -1279,7 +1279,7 @@ function closePortfolio() {
 
 function openAccountHistory() {
     setActiveNav("navAccountHistory");
-    document.querySelector(".app-shell")?.classList.remove("hidden");
+    document.querySelector(".app-shell")?.classList.add("hidden");
     document.getElementById("portfolioPage")?.classList.add("hidden");
     document.getElementById("realEstatePage")?.classList.add("hidden");
     document.getElementById("businessPage")?.classList.add("hidden");
