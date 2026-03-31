@@ -1133,9 +1133,6 @@ function renderLoansPage() {
 
     const maxLoan = roundDownToHundreds(balance * 100);
     const options = [
-        { key: "max", percent: 1.0 },
-        { key: "75", percent: 0.75 },
-        { key: "50", percent: 0.5 },
         { key: "25", percent: 0.25 },
         { key: "10", percent: 0.10 },
         { key: "1", percent: 0.01 }
