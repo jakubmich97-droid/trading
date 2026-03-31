@@ -250,6 +250,10 @@ function formatCurrencyInt(value) {
     return `${Math.round(Number(value) || 0).toLocaleString("cs-CZ")} 💵`;
 }
 
+function formatNumberGrouped(value) {
+    return Math.round(Number(value) || 0).toLocaleString("cs-CZ");
+}
+
 function roundDownToHundreds(value) {
     return Math.floor((Number(value) || 0) / 100) * 100;
 }
@@ -1483,7 +1487,7 @@ function drawDonutChart(canvas, legend, title, slices) {
     ctxPie.textAlign = "center";
     ctxPie.fillText(title, cx, cy - 8);
     ctxPie.font = "16px Inter, sans-serif";
-    ctxPie.fillText(total.toFixed(2), cx, cy + 18);
+    ctxPie.fillText(formatNumberGrouped(total), cx, cy + 18);
 
     legend.innerHTML = sortedSlices.map(s => {
         const pct = ((s.value / total) * 100).toFixed(1);
@@ -1491,7 +1495,7 @@ function drawDonutChart(canvas, legend, title, slices) {
             <div class="legend-row">
                 <span class="legend-dot" style="background:${s.color}"></span>
                 <span>${s.name}</span>
-                <strong>${s.value.toFixed(2)} (${pct} %)</strong>
+                <strong>${formatNumberGrouped(s.value)} (${pct} %)</strong>
             </div>
         `;
     }).join("");
@@ -1594,9 +1598,9 @@ function drawAccountHistoryChart() {
     const deltaColor = delta >= 0 ? "#4ade80" : "#f87171";
 
     legend.innerHTML = `
-        <div class="legend-row"><span class="legend-dot" style="background:#22d3ee"></span><span>Počáteční hodnota</span><strong>${first.total.toFixed(2)}</strong></div>
-        <div class="legend-row"><span class="legend-dot" style="background:#a78bfa"></span><span>Aktuální hodnota</span><strong>${last.total.toFixed(2)}</strong></div>
-        <div class="legend-row"><span class="legend-dot" style="background:${deltaColor}"></span><span>Změna</span><strong style="color:${deltaColor}">${delta >= 0 ? "+" : ""}${delta.toFixed(2)}</strong></div>
+        <div class="legend-row"><span class="legend-dot" style="background:#22d3ee"></span><span>Počáteční hodnota</span><strong>${formatNumberGrouped(first.total)}</strong></div>
+        <div class="legend-row"><span class="legend-dot" style="background:#a78bfa"></span><span>Aktuální hodnota</span><strong>${formatNumberGrouped(last.total)}</strong></div>
+        <div class="legend-row"><span class="legend-dot" style="background:${deltaColor}"></span><span>Změna</span><strong style="color:${deltaColor}">${delta >= 0 ? "+" : ""}${formatNumberGrouped(delta)}</strong></div>
     `;
 }
 
