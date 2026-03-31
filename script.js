@@ -1521,7 +1521,19 @@ function drawPortfolioChart() {
 
     const portfolioSlices = [
         { key: "cash", name: "Volné prostředky", value: Math.max(balance, 0), color: "#22d3ee" },
-        ...assetSlices.map((s, i) => ({ ...s, color: colors[i % colors.length] }))
+        ...assetSlices.map((s, i) => ({ ...s, color: colors[i % colors.length] })),
+        {
+            key: "realestate",
+            name: "Nemovitosti",
+            value: Object.values(realEstates).reduce((sum, item) => sum + (item.value * item.owned), 0),
+            color: "#f97316"
+        },
+        {
+            key: "business",
+            name: "Business (E-shop)",
+            value: (businessState.shop?.value || 0) * (businessState.shop?.owned || 0),
+            color: "#06b6d4"
+        }
     ].filter(s => s.value > 0);
 
     const incomeMap = new Map();
