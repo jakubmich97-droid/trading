@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0b1220"/>
+  <rect x="90" y="120" width="460" height="170" rx="16" fill="#1e293b"/>
+  <rect x="90" y="95" width="460" height="40" fill="#06b6d4"/>
+  <circle cx="220" cy="260" r="28" fill="#94a3b8"/>
+  <circle cx="420" cy="260" r="28" fill="#94a3b8"/>
+  <rect x="180" y="200" width="280" height="26" rx="8" fill="#e0f2fe"/>
+  <circle cx="170" cy="165" r="8" fill="#7dd3fc"/>
+  <circle cx="220" cy="155" r="6" fill="#7dd3fc"/>
+  <circle cx="270" cy="170" r="7" fill="#7dd3fc"/>
+  <text x="320" y="124" fill="#ecfeff" font-size="28" text-anchor="middle" font-family="Arial">Samoobslužná myčka</text>
+</svg>
