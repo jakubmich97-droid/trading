@@ -1439,28 +1439,9 @@ function openCheats() {
     setMainCardView("cheats");
 }
 
-function drawPortfolioChart() {
-    const canvas = document.getElementById("portfolioChart");
-    const legend = document.getElementById("portfolioLegend");
+function drawDonutChart(canvas, legend, title, slices) {
     if (!canvas || !legend) return;
-
     const ctxPie = canvas.getContext("2d");
-    const assetSlices = Object.entries(assets).map(([key, asset]) => ({
-        key,
-        name: asset.name,
-        value: trades
-            .filter(t => t.asset === key)
-            .reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0)
-    }));
-
-    const slices = [
-        { key: "cash", name: "Volné prostředky", value: Math.max(balance, 0), color: "#22d3ee" },
-        ...assetSlices.map((s, i) => ({
-            ...s,
-            color: ["#22c55e", "#a78bfa", "#f59e0b", "#ef4444", "#38bdf8"][i % 5]
-        }))
-    ].filter(s => s.value > 0);
-
     const total = slices.reduce((sum, s) => sum + s.value, 0);
     ctxPie.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -1480,18 +1461,15 @@ function drawPortfolioChart() {
     slices.forEach(slice => {
         const angle = (slice.value / total) * Math.PI * 2;
         const end = start + angle;
-
         ctxPie.beginPath();
         ctxPie.moveTo(cx, cy);
         ctxPie.arc(cx, cy, radius, start, end);
         ctxPie.closePath();
         ctxPie.fillStyle = slice.color;
         ctxPie.fill();
-
         start = end;
     });
 
-    // inner circle for donut effect
     ctxPie.beginPath();
     ctxPie.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
     ctxPie.fillStyle = "#0f172a";
@@ -1500,7 +1478,7 @@ function drawPortfolioChart() {
     ctxPie.fillStyle = "#e2e8f0";
     ctxPie.font = "bold 20px Inter, sans-serif";
     ctxPie.textAlign = "center";
-    ctxPie.fillText("Portfolio", cx, cy - 8);
+    ctxPie.fillText(title, cx, cy - 8);
     ctxPie.font = "16px Inter, sans-serif";
     ctxPie.fillText(total.toFixed(2), cx, cy + 18);
 
@@ -1514,6 +1492,50 @@ function drawPortfolioChart() {
             </div>
         `;
     }).join("");
+}
+
+function drawPortfolioChart() {
+    const canvas = document.getElementById("portfolioChart");
+    const legend = document.getElementById("portfolioLegend");
+    const incomeCanvas = document.getElementById("incomeChart");
+    const incomeLegend = document.getElementById("incomeLegend");
+    const costCanvas = document.getElementById("costChart");
+    const costLegend = document.getElementById("costLegend");
+    if (!canvas || !legend || !incomeCanvas || !incomeLegend || !costCanvas || !costLegend) return;
+
+    const colors = ["#22c55e", "#a78bfa", "#f59e0b", "#ef4444", "#38bdf8", "#14b8a6", "#eab308", "#f472b6"];
+    const assetSlices = Object.entries(assets).map(([key, asset]) => ({
+        key,
+        name: asset.name,
+        value: trades
+            .filter(t => t.asset === key)
+            .reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0)
+    }));
+
+    const portfolioSlices = [
+        { key: "cash", name: "Volné prostředky", value: Math.max(balance, 0), color: "#22d3ee" },
+        ...assetSlices.map((s, i) => ({ ...s, color: colors[i % colors.length] }))
+    ].filter(s => s.value > 0);
+
+    const incomeMap = new Map();
+    const costMap = new Map();
+    transactionHistory.forEach(tx => {
+        const key = tx.label || "Neznámé";
+        if (tx.amount >= 0) incomeMap.set(key, (incomeMap.get(key) || 0) + tx.amount);
+        else costMap.set(key, (costMap.get(key) || 0) + Math.abs(tx.amount));
+    });
+
+    const incomeSlices = [...incomeMap.entries()]
+        .map(([name, value], i) => ({ name, value, color: colors[i % colors.length] }))
+        .filter(s => s.value > 0);
+
+    const costSlices = [...costMap.entries()]
+        .map(([name, value], i) => ({ name, value, color: colors[i % colors.length] }))
+        .filter(s => s.value > 0);
+
+    drawDonutChart(canvas, legend, "Portfolio", portfolioSlices);
+    drawDonutChart(incomeCanvas, incomeLegend, "Příjmy", incomeSlices);
+    drawDonutChart(costCanvas, costLegend, "Náklady", costSlices);
 }
 
 function drawAccountHistoryChart() {
