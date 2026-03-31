@@ -1164,11 +1164,13 @@ function renderLoansPage() {
     });
 
     if (loanState.remainingInstallments > 0) {
+        const remainingToPay = round2(loanState.remainingInstallments * loanState.monthlyPayment);
         infoEl.innerHTML = `
             <p>Aktivní půjčka: <strong>${formatCurrencyInt(loanState.principal)}</strong></p>
             <p>Celkem k úhradě: <strong>${formatCurrencyInt(loanState.totalDue)}</strong></p>
             <p>Měsíční splátka: <strong>${formatCurrencyInt(loanState.monthlyPayment)}</strong></p>
             <p>Zbývá splátek: <strong>${loanState.remainingInstallments}</strong></p>
+            <p>Zbývá doplatit: <strong>${formatCurrencyInt(remainingToPay)}</strong></p>
         `;
     } else {
         infoEl.innerHTML = selectedLoanAmount > 0
