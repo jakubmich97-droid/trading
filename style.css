@@ -133,6 +133,12 @@ body {
     text-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
 }
 
+.balance-hero-meta {
+    margin: 4px 0 0;
+    font-size: 0.82rem;
+    color: #c7d2fe;
+}
+
 h3 {
     margin-top: 0;
     color: #bae6fd;

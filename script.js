@@ -182,6 +182,10 @@ let milestonesState = {
     firstTarget: 10000,
     firstReached: false
 };
+let monthlyCashflow = {
+    income: 0,
+    expenses: 0
+};
 let loanState = {
     principal: 0,
     totalDue: 0,
@@ -250,12 +254,29 @@ function roundDownToHundreds(value) {
     return Math.floor((Number(value) || 0) / 100) * 100;
 }
 
-function addTransaction(label, amount) {
+function addTransaction(label, amount, options = {}) {
+    const { affectMonthly = true } = options;
     transactionHistory.unshift({
         time: new Date().toLocaleString(),
         label,
         amount: round2(amount)
     });
+    if (affectMonthly) {
+        if (amount >= 0) monthlyCashflow.income = round2(monthlyCashflow.income + amount);
+        else monthlyCashflow.expenses = round2(monthlyCashflow.expenses + Math.abs(amount));
+    }
+}
+
+function renderMonthlyCashflow() {
+    const incomeEl = document.getElementById("monthlyIncome");
+    const expensesEl = document.getElementById("monthlyExpenses");
+    const netEl = document.getElementById("monthlyNet");
+    if (!incomeEl || !expensesEl || !netEl) return;
+
+    const net = round2(monthlyCashflow.income - monthlyCashflow.expenses);
+    incomeEl.innerHTML = formatCurrencyInt(monthlyCashflow.income);
+    expensesEl.innerHTML = formatCurrencyInt(monthlyCashflow.expenses);
+    netEl.innerHTML = formatCurrencyInt(net);
 }
 
 function persistCurrentAssetState() {
@@ -306,10 +327,12 @@ function updatePrice() {
     if (monthTick >= DIVIDEND_PERIOD_TICKS) {
         monthTick = 0;
         elapsedMonths += 1;
+        monthlyCashflow = { income: 0, expenses: 0 };
         processRealEstateMonth();
         processBusinessMonth();
         processLoanMonth();
         renderGameTime();
+        renderMonthlyCashflow();
     }
 
     Object.entries(assets).forEach(([assetKey, asset]) => {
@@ -1568,6 +1591,7 @@ function updateAccount() {
     document.getElementById("invested").innerHTML = formatCurrencyInt(invested);
     document.getElementById("unrealized").innerHTML = formatCurrencyInt(unreal);
     document.getElementById("total").innerHTML = formatCurrencyInt(total);
+    renderMonthlyCashflow();
     renderMilestones(earnedProfit);
 
     const last = accountHistory[accountHistory.length - 1];
@@ -1669,6 +1693,9 @@ function buildSaveText() {
 
     text += "=== MILESTONES ===\n";
     text += `${JSON.stringify(milestonesState)}\n\n`;
+
+    text += "=== MONTHLY CASHFLOW ===\n";
+    text += `${JSON.stringify(monthlyCashflow)}\n\n`;
 
     /* ----------------------------------------
        6) Dividendy
@@ -1789,6 +1816,7 @@ function parseImportedData(text, options = {}) {
     transactionHistory = [];
     accountHistory = [];
     milestonesState = { firstTarget: 10000, firstReached: false };
+    monthlyCashflow = { income: 0, expenses: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
@@ -1864,6 +1892,22 @@ function parseImportedData(text, options = {}) {
                 milestonesState = {
                     firstTarget: round2(parsedMilestones.firstTarget ?? 10000),
                     firstReached: Boolean(parsedMilestones.firstReached)
+                };
+            }
+        } catch {
+            // keep defaults
+        }
+    }
+
+    /* ----- MONTHLY CASHFLOW ----- */
+    let secMonthlyCashflow = getSection("MONTHLY CASHFLOW");
+    if (secMonthlyCashflow) {
+        try {
+            const parsedMonthly = JSON.parse(secMonthlyCashflow.split("\n")[0]);
+            if (parsedMonthly && typeof parsedMonthly === "object") {
+                monthlyCashflow = {
+                    income: round2(parsedMonthly.income ?? 0),
+                    expenses: round2(parsedMonthly.expenses ?? 0)
                 };
             }
         } catch {
@@ -2132,6 +2176,7 @@ function newGame() {
     transactionHistory = [];
     accountHistory = [];
     milestonesState = { firstTarget: 10000, firstReached: false };
+    monthlyCashflow = { income: 0, expenses: 0 };
     loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
@@ -2174,6 +2219,7 @@ function newGame() {
     renderBusinessPage();
     renderLoansPage();
     renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+    renderMonthlyCashflow();
     renderGameTime();
 }
 
