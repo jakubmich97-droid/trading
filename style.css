@@ -1712,6 +1712,42 @@ input[type="number"]:focus {
   font-size: 0.58rem;
 }
 
+.speed-btn {
+  position: relative;
+  min-width: 78px;
+}
+
+.speed-btn.speed-active {
+  border-color: rgba(69, 224, 173, 0.48);
+  background: linear-gradient(145deg, rgba(69, 224, 173, 0.22), rgba(67, 200, 245, 0.12));
+  color: #e5fff6;
+  box-shadow: 0 0 0 1px rgba(69, 224, 173, 0.08), 0 8px 22px rgba(69, 224, 173, 0.09);
+}
+
+.speed-btn.speed-active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--emerald);
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px var(--emerald);
+}
+
+.speed-btn[data-speed="0"].speed-active {
+  border-color: rgba(247, 201, 107, 0.42);
+  background: rgba(247, 201, 107, 0.1);
+  color: var(--gold);
+}
+
+.speed-btn[data-speed="0"].speed-active::after {
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+}
+
 @media (max-width: 540px) {
   .business-operations-heading {
     align-items: flex-start;
