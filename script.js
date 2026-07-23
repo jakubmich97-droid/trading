@@ -228,16 +228,31 @@ let loanState = {
     remainingInstallments: 0
 };
 let selectedLoanAmount = 0;
+const BUSINESS_PROFILES = {
+    shop: {
+        tier: "STARTUP",
+        category: "Digitální podnikání • aktivní",
+        risk: "Vyšší riziko",
+        riskKey: "high"
+    },
+    carWash: {
+        tier: "STABILNÍ PŘÍJEM",
+        category: "Lokální služba • polo-pasivní",
+        risk: "Nízké riziko",
+        riskKey: "low"
+    }
+};
+
 let businessState = {
     shop: {
         name: "E-shop",
-        image: "img-eshop.svg",
+        image: "images/business/e-shop.webp",
         value: 200000,
         owned: 0
     },
     carWash: {
         name: "Samoobslužná myčka",
-        image: "img-carwash.svg",
+        image: "images/business/car-wash.webp",
         value: 1000000,
         monthlyIncome: 10000,
         owned: 0
@@ -1524,56 +1539,199 @@ function renderRealEstatePage() {
 function renderBusinessPage() {
     const grid = document.getElementById("businessGrid");
     if (!grid) return;
+    grid.innerHTML = "";
 
     const shop = businessState.shop;
     const goods = businessState.goods;
     const staff = businessState.staff;
+    const shopProfile = BUSINESS_PROFILES.shop;
     const autoBuy = round2(10000 * staff.employees);
     const autoSell = round2(autoBuy * 1.1);
-    grid.innerHTML = "";
+    const salaryTotal = round2(staff.salaryPerEmployee * staff.employees);
+    const automatedMonthlyProfit = round2(autoSell - autoBuy - salaryTotal);
+    const manualProfit = round2(goods.sellPrice - goods.buyPrice);
+    const goodsMargin = goods.buyPrice > 0 ? ((goods.sellPrice - goods.buyPrice) / goods.buyPrice) * 100 : 0;
+    const canPurchaseShop = shop.owned < 1 && shop.value > 0 && balance >= shop.value;
+    const canSellShop = shop.owned > 0 && staff.employees === 0 && !goods.inProgress && !staff.autoInProgress;
+    const canBuyGoods = shop.owned > 0 && staff.employees === 0 && !goods.inProgress && balance >= goods.buyPrice;
+    const canSellGoods = shop.owned > 0 && staff.employees === 0 && goods.inProgress && goods.readyToSell;
+    const canHire = shop.owned > 0 && balance >= 10000;
+    const canFire = shop.owned > 0 && staff.employees > 0;
+    const shopMode = staff.employees > 0 ? "Automatizovaný provoz" : "Ruční provoz";
+    const goodsStatus = goods.inProgress
+        ? (goods.readyToSell ? "Připraveno k prodeji" : "Zboží čeká na další měsíc")
+        : "Sklad je prázdný";
+    const shopStatus = shop.owned > 0
+        ? `Provoz aktivní • ${shopMode.toLowerCase()}`
+        : (canPurchaseShop
+            ? "Připraveno k nákupu"
+            : `K nákupu chybí ${formatCurrencyInt(Math.max(0, shop.value - balance))}`);
 
-    const card = document.createElement("div");
-    card.className = "realestate-card";
-    const canBuyShop = shop.owned < 1;
-    card.innerHTML = `
-        <img src="${shop.image || "img-eshop.svg"}" alt="${shop.name}" class="entity-image">
-        <h3>${shop.name}</h3>
-        <p>Aktuální hodnota: <strong>${formatCurrencyInt(shop.value)}</strong></p>
-        <p>Vlastním: <strong>${shop.owned}</strong></p>
-        <p>Zaměstnanci: <strong>${staff.employees}</strong> | Mzda: <strong>${formatCurrencyInt(staff.salaryPerEmployee)} / měsíc / zaměstnanec</strong></p>
-        <p>Automatický cyklus: <strong>${staff.autoInProgress ? "Nakoupeno, příští měsíc prodej" : "Připraveno nakoupit"}</strong></p>
-        <p>Auto nákup/prodej: <strong>${formatCurrencyInt(autoBuy)} → ${formatCurrencyInt(autoSell)}</strong></p>
-        <p>Zboží: <strong>${goods.inProgress ? (goods.readyToSell ? "Připraveno k prodeji" : "Nakoupeno, čeká na měsíc") : "Žádné"} </strong></p>
-        <p>Nákup zboží (manuálně): <strong>${formatCurrencyInt(goods.buyPrice)}</strong> | Prodej: <strong>${formatCurrencyInt(goods.sellPrice)}</strong></p>
-        <div class="toolbar">
-            <button class="buy-btn" onclick="buyBusinessShop()" ${canBuyShop ? "" : "disabled"}>Koupit e-shop</button>
-            <button class="sell-btn" onclick="sellBusinessShop()">Prodat e-shop</button>
+    const shopCard = document.createElement("article");
+    shopCard.className = `realestate-card property-card business-card risk-${shopProfile.riskKey}`;
+    shopCard.innerHTML = `
+        <div class="property-media">
+            <img src="images/business/e-shop.webp" alt="${shop.name}" class="entity-image" loading="lazy" decoding="async">
+            <div class="property-badges">
+                <span class="property-tier">${shopProfile.tier}</span>
+                <span class="property-risk risk-${shopProfile.riskKey}"><i></i>${shopProfile.risk}</span>
+            </div>
         </div>
-        ${shop.owned > 0 ? `
-        <div class="toolbar">
-            <button onclick="buyBusinessGoods()">Nakoupit zboží za ${formatCurrencyInt(goods.buyPrice)}</button>
-            <button onclick="sellBusinessGoods()">Prodat zboží za ${formatCurrencyInt(goods.sellPrice)}</button>
+
+        <div class="property-content">
+            <div class="property-heading">
+                <div>
+                    <span class="property-kicker">${shopProfile.category}</span>
+                    <h3>${shop.name}</h3>
+                </div>
+                <div class="property-price">
+                    <span>Pořizovací cena</span>
+                    <strong>${formatCurrencyInt(shop.value)}</strong>
+                </div>
+            </div>
+
+            <div class="property-metrics business-metrics">
+                <div class="property-metric primary">
+                    <span>Potenciál zisku</span>
+                    <strong>${formatCurrencyInt(staff.employees > 0 ? automatedMonthlyProfit : manualProfit)} <small>/ měsíc</small></strong>
+                </div>
+                <div class="property-metric">
+                    <span>Marže zboží</span>
+                    <strong>${goodsMargin.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Zaměstnanci</span>
+                    <strong>${staff.employees}</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Auto nákup</span>
+                    <strong>${formatCurrencyInt(autoBuy)}</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Auto prodej</span>
+                    <strong>${formatCurrencyInt(autoSell)}</strong>
+                </div>
+            </div>
+
+            <div class="property-breakdown">
+                <div><span>Portfolio</span><strong>${shop.owned > 0 ? "Vlastním" : "Nevlastním"}</strong></div>
+                <div><span>Mzdy za měsíc</span><strong>− ${formatCurrencyInt(salaryTotal)}</strong></div>
+                <div><span>Režim</span><strong>${shopMode}</strong></div>
+            </div>
+
+            <div class="business-learning-note">
+                <span>💡</span>
+                <span>Marže není čistý zisk. Automatizace přidává objem, ale také mzdy zaměstnanců.</span>
+            </div>
+
+            <div class="property-availability ${shop.owned > 0 || canPurchaseShop ? "available" : "locked"}">
+                <span class="availability-dot"></span>
+                <span>${shopStatus}</span>
+            </div>
+
+            <div class="toolbar property-actions">
+                <button class="buy-btn" onclick="buyBusinessShop()" ${canPurchaseShop ? "" : "disabled"}>Koupit za ${formatCurrencyInt(shop.value)}</button>
+                <button class="sell-btn" onclick="sellBusinessShop()" ${canSellShop ? "" : "disabled"}>Prodat</button>
+            </div>
+
+            ${shop.owned > 0 ? `
+                <div class="business-operations">
+                    <div class="business-operations-heading">
+                        <div>
+                            <span class="property-kicker">ŘÍZENÍ PROVOZU</span>
+                            <strong>E-shop operace</strong>
+                        </div>
+                        <span class="operation-state ${staff.autoInProgress || goods.inProgress ? "running" : ""}">${goodsStatus}</span>
+                    </div>
+                    <div class="operations-actions">
+                        <button onclick="buyBusinessGoods()" ${canBuyGoods ? "" : "disabled"}>Nakoupit zboží</button>
+                        <button onclick="sellBusinessGoods()" ${canSellGoods ? "" : "disabled"}>Prodat zboží</button>
+                        <button onclick="hireEmployee()" ${canHire ? "" : "disabled"}>Najmout zaměstnance</button>
+                        <button onclick="fireEmployee()" ${canFire ? "" : "disabled"}>Propustit zaměstnance</button>
+                    </div>
+                </div>
+            ` : ""}
         </div>
-        <div class="toolbar">
-            <button onclick="hireEmployee()">Najmout zaměstnance</button>
-            <button onclick="fireEmployee()">Propustit zaměstnance</button>
-        </div>
-        ` : ""}
     `;
-    grid.appendChild(card);
+    grid.appendChild(shopCard);
 
     const wash = businessState.carWash;
-    const washCard = document.createElement("div");
-    washCard.className = "realestate-card";
+    const washProfile = BUSINESS_PROFILES.carWash;
+    const washAnnualIncome = round2(wash.monthlyIncome * 12);
+    const washYield = wash.value > 0 ? (washAnnualIncome / wash.value) * 100 : 0;
+    const washPayback = washAnnualIncome > 0 ? wash.value / washAnnualIncome : null;
+    const canBuyWash = wash.value > 0 && balance >= wash.value;
+    const canSellWash = wash.owned > 0;
+    const washStatus = canBuyWash
+        ? "Připraveno k nákupu"
+        : `K nákupu chybí ${formatCurrencyInt(Math.max(0, wash.value - balance))}`;
+
+    const washCard = document.createElement("article");
+    washCard.className = `realestate-card property-card business-card risk-${washProfile.riskKey}`;
     washCard.innerHTML = `
-        <img src="${wash.image || "img-carwash.svg"}" alt="${wash.name}" class="entity-image">
-        <h3>${wash.name}</h3>
-        <p>Pořizovací cena: <strong>${formatCurrencyInt(wash.value)}</strong></p>
-        <p>Měsíční příjem: <strong>${formatCurrencyInt(wash.monthlyIncome)}</strong></p>
-        <p>Vlastním: <strong>${wash.owned}</strong></p>
-        <div class="toolbar">
-            <button class="buy-btn" onclick="buyCarWash()">Koupit myčku</button>
-            <button class="sell-btn" onclick="sellCarWash()">Prodat myčku</button>
+        <div class="property-media">
+            <img src="images/business/car-wash.webp" alt="${wash.name}" class="entity-image" loading="lazy" decoding="async">
+            <div class="property-badges">
+                <span class="property-tier">${washProfile.tier}</span>
+                <span class="property-risk risk-${washProfile.riskKey}"><i></i>${washProfile.risk}</span>
+            </div>
+        </div>
+
+        <div class="property-content">
+            <div class="property-heading">
+                <div>
+                    <span class="property-kicker">${washProfile.category}</span>
+                    <h3>${wash.name}</h3>
+                </div>
+                <div class="property-price">
+                    <span>Pořizovací cena</span>
+                    <strong>${formatCurrencyInt(wash.value)}</strong>
+                </div>
+            </div>
+
+            <div class="property-metrics business-metrics">
+                <div class="property-metric primary">
+                    <span>Měsíční příjem</span>
+                    <strong>${formatCurrencyInt(wash.monthlyIncome)} <small>/ provoz</small></strong>
+                </div>
+                <div class="property-metric">
+                    <span>Roční příjem</span>
+                    <strong>${formatCurrencyInt(washAnnualIncome)}</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Hrubý výnos</span>
+                    <strong>${washYield.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Návratnost</span>
+                    <strong>${washPayback ? `${washPayback.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} let` : "—"}</strong>
+                </div>
+                <div class="property-metric">
+                    <span>Počet provozů</span>
+                    <strong>${wash.owned}</strong>
+                </div>
+            </div>
+
+            <div class="property-breakdown">
+                <div><span>Portfolio</span><strong>${wash.owned > 0 ? `Vlastním ${wash.owned}×` : "Nevlastním"}</strong></div>
+                <div><span>Typ příjmu</span><strong>Polo-pasivní</strong></div>
+                <div><span>Výplata</span><strong>Každý měsíc</strong></div>
+            </div>
+
+            <div class="business-learning-note warning">
+                <span>💡</span>
+                <span>Výnos je v současném modelu hrubý — před případnými provozními náklady.</span>
+            </div>
+
+            <div class="property-availability ${canBuyWash ? "available" : "locked"}">
+                <span class="availability-dot"></span>
+                <span>${washStatus}</span>
+            </div>
+
+            <div class="toolbar property-actions">
+                <button class="buy-btn" onclick="buyCarWash()" ${canBuyWash ? "" : "disabled"}>Koupit za ${formatCurrencyInt(wash.value)}</button>
+                <button class="sell-btn" onclick="sellCarWash()" ${canSellWash ? "" : "disabled"}>Prodat</button>
+            </div>
         </div>
     `;
     grid.appendChild(washCard);
@@ -2234,8 +2392,8 @@ function parseImportedData(text, options = {}) {
     monthlyCashflow = { income: 0, expenses: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
-        shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
-        carWash: { name: "Samoobslužná myčka", image: "img-carwash.svg", value: 1000000, monthlyIncome: 10000, owned: 0 },
+        shop: { name: "E-shop", image: "images/business/e-shop.webp", value: 200000, owned: 0 },
+        carWash: { name: "Samoobslužná myčka", image: "images/business/car-wash.webp", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
         staff: { employees: 0, salaryPerEmployee: 500, autoInProgress: false }
     };
@@ -2416,13 +2574,13 @@ function parseImportedData(text, options = {}) {
                 businessState = {
                     shop: {
                         name: parsedBusiness.shop?.name || "E-shop",
-                        image: parsedBusiness.shop?.image || "img-eshop.svg",
+                        image: parsedBusiness.shop?.image || "images/business/e-shop.webp",
                         value: round2(parsedBusiness.shop?.value ?? 200000),
                         owned: Math.min(1, Number(parsedBusiness.shop?.owned ?? 0))
                     },
                     carWash: {
                         name: parsedBusiness.carWash?.name || "Samoobslužná myčka",
-                        image: parsedBusiness.carWash?.image || "img-carwash.svg",
+                        image: parsedBusiness.carWash?.image || "images/business/car-wash.webp",
                         value: round2(parsedBusiness.carWash?.value ?? 1000000),
                         monthlyIncome: round2(parsedBusiness.carWash?.monthlyIncome ?? 10000),
                         owned: Number(parsedBusiness.carWash?.owned ?? 0)
@@ -2633,8 +2791,8 @@ function newGame() {
     selectedLoanAmount = 0;
     realEstates = createDefaultRealEstates();
     businessState = {
-        shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
-        carWash: { name: "Samoobslužná myčka", image: "img-carwash.svg", value: 1000000, monthlyIncome: 10000, owned: 0 },
+        shop: { name: "E-shop", image: "images/business/e-shop.webp", value: 200000, owned: 0 },
+        carWash: { name: "Samoobslužná myčka", image: "images/business/car-wash.webp", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
         staff: { employees: 0, salaryPerEmployee: 500, autoInProgress: false }
     };
