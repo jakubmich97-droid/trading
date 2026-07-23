@@ -2092,7 +2092,7 @@ function applyCheatBalance() {
     addTransaction("Cheat: změna volných prostředků", delta);
     updateAccount();
     renderLoansPage();
-    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+    renderMilestones(round2(calculateNetWorth() - STARTING_CAPITAL));
     if (input) input.value = "";
 }
 
@@ -2268,7 +2268,7 @@ function openMilestones() {
     document.getElementById("accountHistoryPage")?.classList.add("hidden");
     document.querySelector(".app-shell")?.classList.remove("hidden");
     setMainCardView("milestones");
-    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+    renderMilestones(round2(calculateNetWorth() - STARTING_CAPITAL));
 }
 
 function openCheats() {
@@ -3206,7 +3206,7 @@ function newGame() {
     renderRealEstatePage();
     renderBusinessPage();
     renderLoansPage();
-    renderMilestones(round2((balance + calculateInvestedCapital() + calculateUnrealized()) - STARTING_CAPITAL));
+    renderMilestones(round2(calculateNetWorth() - STARTING_CAPITAL));
     renderMonthlyCashflow();
     renderGameTime();
 }
