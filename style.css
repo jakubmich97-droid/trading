@@ -1562,6 +1562,121 @@ input[type="number"]:focus {
   filter: saturate(0.35);
 }
 
+.business-card .property-kicker {
+  color: var(--cyan);
+}
+
+.business-card .property-tier {
+  color: #8be7ff;
+}
+
+.business-card .property-metric.primary {
+  border-color: rgba(67, 200, 245, 0.18);
+  background: linear-gradient(135deg, rgba(67, 200, 245, 0.11), rgba(167, 139, 250, 0.045));
+}
+
+.business-card .property-metric.primary strong {
+  color: var(--cyan);
+}
+
+.business-learning-note {
+  margin-top: 10px;
+  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  border: 1px solid rgba(67, 200, 245, 0.1);
+  border-radius: 11px;
+  background: rgba(67, 200, 245, 0.04);
+  color: var(--muted);
+  font-size: 0.59rem;
+  line-height: 1.55;
+}
+
+.business-learning-note.warning {
+  border-color: rgba(247, 201, 107, 0.11);
+  background: rgba(247, 201, 107, 0.04);
+}
+
+.business-operations {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(67, 200, 245, 0.12);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(67, 200, 245, 0.05), rgba(255, 255, 255, 0.018));
+}
+
+.business-operations-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.business-operations-heading > div {
+  min-width: 0;
+}
+
+.business-operations-heading strong,
+.business-operations-heading span {
+  display: block;
+}
+
+.business-operations-heading strong {
+  margin-top: 3px;
+  color: #e2edf4;
+  font-size: 0.72rem;
+}
+
+.operation-state {
+  max-width: 48%;
+  padding: 6px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font-size: 0.53rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operation-state.running {
+  border-color: rgba(67, 200, 245, 0.16);
+  background: rgba(67, 200, 245, 0.08);
+  color: var(--cyan);
+}
+
+.operations-actions {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.operations-actions button {
+  min-height: 39px;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.58rem;
+}
+
+@media (max-width: 540px) {
+  .business-operations-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .operation-state {
+    max-width: 100%;
+  }
+
+  .operations-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 540px) {
   .property-heading {
     align-items: flex-start;
