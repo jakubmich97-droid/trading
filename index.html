@@ -142,11 +142,11 @@
         <section class="card controls-card">
           <div class="control-block">
             <span class="control-label">Rychlost času</span>
-            <div class="toolbar speed-toolbar">
-              <button onclick="setSpeed(0)">⏸ Pauza</button>
-              <button class="primary" onclick="setSpeed(1000)">▶ 1×</button>
-              <button onclick="setSpeed(500)">2×</button>
-              <button onclick="setSpeed(200)">5×</button>
+            <div class="toolbar speed-toolbar" aria-label="Rychlost času">
+              <button class="speed-btn" data-speed="0" aria-pressed="false" onclick="setSpeed(0)">⏸ Pauza</button>
+              <button class="speed-btn speed-active" data-speed="1000" aria-pressed="true" onclick="setSpeed(1000)">▶ 1×</button>
+              <button class="speed-btn" data-speed="500" aria-pressed="false" onclick="setSpeed(500)">2×</button>
+              <button class="speed-btn" data-speed="200" aria-pressed="false" onclick="setSpeed(200)">5×</button>
             </div>
           </div>
           <div class="control-block save-block">
