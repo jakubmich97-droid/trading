@@ -1712,6 +1712,74 @@ input[type="number"]:focus {
   font-size: 0.58rem;
 }
 
+
+.save-block {
+  align-items: stretch;
+  min-width: min(100%, 520px);
+}
+
+.save-actions {
+  margin-bottom: 9px;
+}
+
+.save-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.save-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.save-slot button {
+  min-height: 42px;
+}
+
+.save-slot .slot-load {
+  min-width: 0;
+  padding: 7px 9px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.slot-load strong {
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.slot-load span {
+  width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.61rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-save {
+  padding-inline: 9px;
+  border-color: rgba(69, 224, 173, 0.22);
+  color: var(--emerald);
+}
+
+.autosave-status {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 650;
+}
+
 .speed-btn {
   position: relative;
   min-width: 78px;
@@ -2426,6 +2494,10 @@ input[type="number"]:focus {
 
   .save-block {
     width: 100%;
+  }
+
+  .save-slots {
+    grid-template-columns: 1fr;
   }
 
   .indicator-card {
