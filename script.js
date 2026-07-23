@@ -4,11 +4,13 @@
  *  Hráč se učí prostřednictvím rozhodnutí, následků a dlouhodobého vývoje.
  ********************************************************************/
 window.addEventListener("load", () => {
-    let saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        parseImportedData(saved, { silent: true });
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const loaded = saved ? parseImportedData(saved, { silent: true }) : false;
+
+    if (loaded) {
         console.log("Automaticky načten poslední uložený stav.");
     } else {
+        if (saved) localStorage.removeItem(STORAGE_KEY);
         loadAssetState(currentAsset);
         syncIndicatorCheckboxes();
         renderAssetsSidebar();
@@ -23,6 +25,8 @@ window.addEventListener("load", () => {
         calculateCost();
         drawChart();
     }
+    refreshSaveSlots();
+    updateAutosaveStatus(loaded ? "Automatický postup načten" : "Automatické ukládání aktivní");
 });
 /* ---------------------------------------------------
       BASE VARIABLES
@@ -47,8 +51,9 @@ const COMMISSION = 0;
 const DEFAULT_LEVERAGE = 1;
 const MAX_LEVERAGE = 5;
 const STORAGE_KEY = "tradingGameState";
+const SAVE_SLOT_PREFIX = "investQuestSaveSlot";
 const AUTOSAVE_INTERVAL = 10000;
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 const TRANSACTION_HISTORY_LIMIT = 1000;
 const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
@@ -2563,20 +2568,61 @@ function calculateCost() {
 --------------------------------------------------- */
 
 function exportData() {
-    const text = buildSaveText();
-
-    const blob = new Blob([text], { type: "text/plain" });
+    const serialized = serializeSaveData();
+    const blob = new Blob([serialized], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement("a");
+    const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+
     a.href = url;
-
-    let dateStr = new Date().toISOString().replace(/[:.]/g, "-");
-    a.download = `trading_export_${dateStr}.txt`;
-
+    a.download = `invest-quest-save-${dateStr}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    localStorage.setItem(STORAGE_KEY, text);
+    localStorage.setItem(STORAGE_KEY, serialized);
+    updateAutosaveStatus("Postup exportován");
+}
+
+function buildSaveData() {
+    persistCurrentAssetState();
+
+    return {
+        format: "invest-quest-save",
+        saveVersion: SAVE_VERSION,
+        savedAt: new Date().toISOString(),
+        game: {
+            title: "Invest Quest",
+            goal: "Zábavná naučná investiční hra pro mladé"
+        },
+        player: {
+            balance,
+            nextTradeId: tradeId,
+            elapsedMonths,
+            milestones: milestonesState,
+            challenges: challengeState,
+            monthlyCashflow
+        },
+        market: {
+            currentAsset,
+            assets,
+            displaySettings,
+            monthTick,
+            speed: currentSpeed
+        },
+        portfolio: {
+            openTrades: trades,
+            closedTrades: window.closedTrades || [],
+            realEstates,
+            business: businessState,
+            loans: loanState,
+            transactionHistory,
+            accountHistory
+        },
+        legacyText: buildSaveText()
+    };
+}
+
+function serializeSaveData() {
+    return JSON.stringify(buildSaveData(), null, 2);
 }
 
 function buildSaveText() {
@@ -2720,9 +2766,84 @@ function buildSaveText() {
     return text;
 }
 
+function updateAutosaveStatus(message = "Postup automaticky uložen") {
+    const status = document.getElementById("autosaveStatus");
+    if (!status) return;
+    status.textContent = `● ${message} • ${new Date().toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function getSlotStorageKey(slot) {
+    return `${SAVE_SLOT_PREFIX}${slot}`;
+}
+
+function getSaveMetadata(serialized) {
+    try {
+        const data = JSON.parse(serialized);
+        if (data?.format !== "invest-quest-save") return null;
+        return { savedAt: data.savedAt, balance: Number(data.player?.balance) || 0 };
+    } catch {
+        return null;
+    }
+}
+
+function refreshSaveSlots() {
+    for (let slot = 1; slot <= 3; slot++) {
+        const element = document.getElementById(`saveSlotMeta${slot}`);
+        if (!element) continue;
+        const serialized = localStorage.getItem(getSlotStorageKey(slot));
+        if (!serialized) {
+            element.textContent = "Prázdná";
+            continue;
+        }
+        const meta = getSaveMetadata(serialized);
+        if (!meta) {
+            element.textContent = "Starší uložená hra";
+            continue;
+        }
+        const date = new Date(meta.savedAt);
+        const label = Number.isNaN(date.getTime())
+            ? "Bez data"
+            : date.toLocaleString("cs-CZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        element.textContent = `${label} • ${formatCurrencyInt(meta.balance)}`;
+    }
+}
+
+function saveToSlot(slot) {
+    slot = Number(slot);
+    if (![1, 2, 3].includes(slot)) return;
+    const key = getSlotStorageKey(slot);
+    if (localStorage.getItem(key) && !confirm(`Pozice ${slot} už obsahuje uloženou hru. Přepsat ji?`)) return;
+
+    try {
+        const serialized = serializeSaveData();
+        localStorage.setItem(key, serialized);
+        localStorage.setItem(STORAGE_KEY, serialized);
+        refreshSaveSlots();
+        updateAutosaveStatus(`Uloženo do pozice ${slot}`);
+    } catch (error) {
+        console.error("Ruční uložení selhalo:", error);
+        alert("Hru se nepodařilo uložit.");
+    }
+}
+
+function loadFromSlot(slot) {
+    slot = Number(slot);
+    if (![1, 2, 3].includes(slot)) return;
+    const serialized = localStorage.getItem(getSlotStorageKey(slot));
+    if (!serialized) return alert(`Pozice ${slot} je zatím prázdná.`);
+    if (!confirm(`Načíst pozici ${slot}? Současný postup zůstane v automatické záloze.`)) return;
+
+    if (!parseImportedData(serialized, { silent: true })) return;
+    saveGameState();
+    refreshSaveSlots();
+    updateAutosaveStatus(`Načtena pozice ${slot}`);
+    alert(`Pozice ${slot} byla načtena.`);
+}
+
 function saveGameState() {
     try {
-        localStorage.setItem(STORAGE_KEY, buildSaveText());
+        localStorage.setItem(STORAGE_KEY, serializeSaveData());
+        updateAutosaveStatus();
     } catch (error) {
         console.error("Automatické uložení selhalo:", error);
     }
@@ -2734,7 +2855,7 @@ function saveGameState() {
 function parseImportedDataFromFile() {
     const input = document.getElementById("importFile");
     const file = input.files?.[0];
-    if (!file) return alert("Nejprve vyber .txt soubor.");
+    if (!file) return alert("Nejprve vyber uložený soubor .json nebo starší .txt.");
 
     const reader = new FileReader();
     reader.onload = e => parseImportedData(e.target.result);
@@ -2743,9 +2864,29 @@ function parseImportedDataFromFile() {
 }
 
 function parseImportedData(text, options = {}) {
-    if (!text || typeof text !== "string") return;
+    if (!text || typeof text !== "string") return false;
 
     const { silent = false } = options;
+    const trimmedText = text.trim();
+    let importedSpeed = null;
+
+    if (trimmedText.startsWith("{")) {
+        try {
+            const saveData = JSON.parse(trimmedText);
+            if (saveData?.format !== "invest-quest-save" || typeof saveData.legacyText !== "string") {
+                throw new Error("Soubor není platná uložená hra Invest Quest.");
+            }
+            if (Number(saveData.saveVersion) > SAVE_VERSION) {
+                throw new Error("Uložená hra pochází z novější verze aplikace.");
+            }
+            importedSpeed = Number(saveData.market?.speed);
+            text = saveData.legacyText;
+        } catch (error) {
+            console.error("Načtení JSON uložené hry selhalo:", error);
+            if (!silent) alert(error.message || "Uložený soubor není platný.");
+            return false;
+        }
+    }
 
     // Reset
     trades = [];
@@ -3094,8 +3235,14 @@ function parseImportedData(text, options = {}) {
     renderLoansPage();
     renderGameTime();
     updateLeverageLesson();
+    if ([0, 200, 500, 1000].includes(importedSpeed)) setSpeed(importedSpeed);
 
-    if (!silent) alert("Data byla úspěšně načtena.");
+    if (!silent) {
+        saveGameState();
+        refreshSaveSlots();
+        alert("Uložená hra byla úspěšně načtena.");
+    }
+    return true;
 }
 
 function newGame() {
