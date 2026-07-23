@@ -60,6 +60,7 @@ const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
 const MAX_CANDLES = 75;
 const STARTING_CAPITAL = 10000;
+const FINANCIAL_XP_CURRENCY_STEP = 100;
 const REAL_ESTATE_GROWTH_RATE = 0.0003;
 const LAND_GROWTH_RATE = 0.00015;
 
@@ -1580,7 +1581,7 @@ function calculateLoanLimit() {
 }
 
 function renderGameHud(netWorth) {
-    const financialXp = Math.max(0, round2(netWorth - STARTING_CAPITAL));
+    const financialXp = Math.floor(Math.max(0, netWorth - STARTING_CAPITAL) / FINANCIAL_XP_CURRENCY_STEP);
     const missionXp = Math.max(0, Number(challengeState?.xp) || 0);
     const earned = financialXp + missionXp;
     const levelSize = 10000;
