@@ -136,7 +136,7 @@ function createDefaultRealEstates() {
     return {
         small_apartment: {
             name: "Malý byt",
-            image: "img-small-apartment.svg",
+            image: "images/real-estate/small-apartment.webp",
             value: 3500000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 10000,
@@ -146,7 +146,7 @@ function createDefaultRealEstates() {
         },
         medium_apartment: {
             name: "Střední byt",
-            image: "img-medium-apartment.svg",
+            image: "images/real-estate/medium-apartment.webp",
             value: 5000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 15000,
@@ -156,7 +156,7 @@ function createDefaultRealEstates() {
         },
         commercial: {
             name: "Komerční prostory",
-            image: "img-commercial.svg",
+            image: "images/real-estate/commercial.webp",
             value: 10000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 30000,
@@ -166,7 +166,7 @@ function createDefaultRealEstates() {
         },
         house: {
             name: "Rodinný dům",
-            image: "img-house.svg",
+            image: "images/real-estate/family-house.webp",
             value: 8000000,
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 24000,
@@ -1402,7 +1402,7 @@ function renderRealEstatePage() {
         const card = document.createElement("div");
         card.className = "realestate-card";
         card.innerHTML = `
-            <img src="${item.image || "img-house.svg"}" alt="${item.name}" class="entity-image">
+            <img src="${item.image || "images/real-estate/family-house.webp"}" alt="${item.name}" class="entity-image" loading="lazy" decoding="async">
             <h3>${item.name}</h3>
             <p>Aktuální hodnota: <strong>${formatCurrencyInt(item.value)}</strong></p>
             <p>Vlastním: <strong>${item.owned}</strong></p>
