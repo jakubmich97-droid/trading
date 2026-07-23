@@ -3,227 +3,351 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trading Game</title>
+  <meta name="theme-color" content="#07111f">
+  <title>Invest Quest – investiční hra</title>
   <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
-<aside class="side-nav">
-  <h2>Invest game</h2>
-  <button id="navTrading" class="nav-btn active" onclick="openTrading()">📈 Trading</button>
-  <button id="navRealEstate" class="nav-btn" onclick="openRealEstate()">🏠 Nemovitosti</button>
-  <button id="navBusiness" class="nav-btn" onclick="openBusiness()">🛒 Business</button>
-  <button id="navLoans" class="nav-btn" onclick="openLoans()">💳 Půjčky</button>
-  <button id="navPortfolio" class="nav-btn" onclick="openPortfolio()">📊 Portfolio</button>
-  <button id="navAccountHistory" class="nav-btn" onclick="openAccountHistory()">📈 Stav účtu</button>
-  <button id="navMilestones" class="nav-btn" onclick="openMilestones()">🏁 Milníky</button>
-  <button id="navCheats" class="nav-btn" onclick="openCheats()">🧪 Cheats</button>
-</aside>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
 
-<div class="app-shell">
-<aside id="assetsSidebarCard" class="card assets-sidebar">
-  <h3>Všechny akcie</h3>
-  <div id="assetsSidebar"></div>
-</aside>
-
-<main class="app">
-  <header class="app-header">
-    <h1>Invest Game</h1>
-  </header>
-
-  <section class="top-summary">
-    <div class="card balance-hero">
-      <img src="money.svg" alt="Peníze" class="money-icon">
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-mark">IQ</div>
       <div>
-        <p class="balance-hero-label">Volné prostředky</p>
-        <p class="balance-hero-value"><span id="balance"></span></p>
-        <p class="balance-hero-meta">Měsíční příjmy: <span id="monthlyIncome"></span></p>
-        <p class="balance-hero-meta">Měsíční náklady: <span id="monthlyExpenses"></span></p>
-        <p class="balance-hero-meta">Měsíční balance: <span id="monthlyNet"></span></p>
+        <strong>Invest Quest</strong>
+        <span>Hraj. Pochop. Rozhoduj.</span>
       </div>
     </div>
 
-    <div class="card account-inline">
-      <h3>Stav účtu</h3>
-      <p>Investováno: <span id="invested"></span></p>
-      <p>Unrealized: <span id="unrealized"></span></p>
-      <p>Total: <span id="total"></span></p>
+    <section class="player-card">
+      <div class="player-row">
+        <span class="player-avatar">🧭</span>
+        <div>
+          <span class="eyebrow">Tvoje úroveň</span>
+          <strong id="playerTitle">Začínající investor</strong>
+        </div>
+        <span id="playerLevel" class="level-pill">LVL 1</span>
+      </div>
+      <div class="xp-track"><span id="playerXpBar"></span></div>
+      <div class="xp-copy">
+        <span>Zkušenosti</span>
+        <strong id="playerXpText">0 / 10 000 XP</strong>
+      </div>
+    </section>
+
+    <span class="nav-label">Herní svět</span>
+    <nav class="nav-menu" aria-label="Hlavní navigace">
+      <button id="navTrading" class="nav-btn active" onclick="openTrading()"><span>📈</span><b>Burza</b></button>
+      <button id="navRealEstate" class="nav-btn" onclick="openRealEstate()"><span>🏘️</span><b>Reality</b></button>
+      <button id="navBusiness" class="nav-btn" onclick="openBusiness()"><span>🏪</span><b>Business</b></button>
+      <button id="navLoans" class="nav-btn" onclick="openLoans()"><span>🏦</span><b>Banka</b></button>
+      <button id="navPortfolio" class="nav-btn" onclick="openPortfolio()"><span>🧩</span><b>Portfolio</b></button>
+      <button id="navAccountHistory" class="nav-btn" onclick="openAccountHistory()"><span>📊</span><b>Vývoj</b></button>
+      <button id="navMilestones" class="nav-btn" onclick="openMilestones()"><span>🏆</span><b>Výzvy</b></button>
+      <button id="navCheats" class="nav-btn nav-btn-muted" onclick="openCheats()"><span>🧪</span><b>Laboratoř</b></button>
+    </nav>
+
+    <div class="academy-note">
+      <span>🎓</span>
+      <p><strong>Investiční akademie</strong>Každé rozhodnutí mění tvůj majetek, cashflow i riziko.</p>
     </div>
+  </aside>
 
-    <div class="card account-inline">
-      <h3>Čas ve hře</h3>
-      <p><span id="gameTime">0 měsíců</span></p>
-    </div>
-  </section>
+  <div class="app-shell">
+    <aside id="assetsSidebarCard" class="card assets-sidebar">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Tržní mapa</span>
+          <h3>Akcie</h3>
+        </div>
+        <span class="live-badge"><i></i> Živě</span>
+      </div>
+      <div id="assetsSidebar"></div>
+      <div class="learning-tip">
+        <span>💡</span>
+        <p><strong>Tip akademie</strong>Vyšší výnos obvykle znamená také vyšší riziko.</p>
+      </div>
+    </aside>
 
-  <div id="tradingPage">
-    <section class="card controls-card">
-      <div class="toolbar">
-        <button onclick="setSpeed(0)">⏸ Pause</button>
-        <button onclick="setSpeed(1000)">▶ Play (1×)</button>
-        <button onclick="setSpeed(500)">2×</button>
-        <button onclick="setSpeed(200)">5×</button>
-        <button class="danger" onclick="newGame()">🆕 Nová hra</button>
+    <main class="app">
+      <header class="app-header">
+        <div>
+          <span id="pageEyebrow" class="eyebrow">Kapitola 1 · Budování majetku</span>
+          <h1 id="pageTitle">Tvoje finanční cesta</h1>
+          <p id="pageSubtitle">Rozhoduj se chytře a vybuduj portfolio, které tě uživí.</p>
+        </div>
+        <div class="health-card">
+          <span id="healthDot" class="health-dot"></span>
+          <div>
+            <small>Finanční kondice</small>
+            <strong id="healthStatus">Stabilní</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="top-summary">
+        <article class="card wealth-hero">
+          <div class="summary-icon">💎</div>
+          <div class="wealth-main">
+            <span class="summary-label">Čisté jmění</span>
+            <strong id="total" class="summary-value">0 💵</strong>
+            <span id="healthHint" class="summary-foot">Majetek po odečtení všech dluhů</span>
+          </div>
+          <div class="debt-chip">Dluh <strong id="topDebt">0 💵</strong></div>
+        </article>
+
+        <article class="card summary-card">
+          <div class="summary-head"><span class="summary-icon small">💰</span><span class="trend neutral">HOTOVOST</span></div>
+          <span class="summary-label">Volné prostředky</span>
+          <strong id="balance" class="summary-value small-value">0 💵</strong>
+          <div class="summary-split">
+            <span>Investováno <b id="invested">0 💵</b></span>
+            <span>Vývoj <b id="unrealized">0 💵</b></span>
+          </div>
+        </article>
+
+        <article class="card summary-card">
+          <div class="summary-head"><span class="summary-icon small">⚡</span><span class="trend positive">MĚSÍC</span></div>
+          <span class="summary-label">Čisté cashflow</span>
+          <strong id="monthlyNet" class="summary-value small-value">0 💵</strong>
+          <div class="summary-split">
+            <span>Příjmy <b id="monthlyIncome">0 💵</b></span>
+            <span>Náklady <b id="monthlyExpenses">0 💵</b></span>
+          </div>
+        </article>
+
+        <article class="card summary-card time-card">
+          <div class="summary-head"><span class="summary-icon small">⏳</span><span class="trend neutral">ČAS</span></div>
+          <span class="summary-label">Ve hře</span>
+          <strong id="gameTime" class="summary-value small-value">0 měsíců</strong>
+          <span class="summary-foot">Každých 12 ticků = 1 měsíc</span>
+        </article>
+      </section>
+
+      <div id="tradingPage">
+        <section class="mission-banner">
+          <div class="mission-icon">🎯</div>
+          <div class="mission-copy">
+            <span class="eyebrow">Aktuální mise</span>
+            <strong>Vydělej prvních 10 000 💵</strong>
+            <p>Pozoruj trh, rozlož riziko a nenech se zlákat jedním rychlým ziskem.</p>
+          </div>
+          <div class="mission-progress">
+            <span>Postup</span>
+            <strong id="currentMissionProgress">0 %</strong>
+          </div>
+        </section>
+
+        <section class="card controls-card">
+          <div class="control-block">
+            <span class="control-label">Rychlost času</span>
+            <div class="toolbar speed-toolbar">
+              <button onclick="setSpeed(0)">⏸ Pauza</button>
+              <button class="primary" onclick="setSpeed(1000)">▶ 1×</button>
+              <button onclick="setSpeed(500)">2×</button>
+              <button onclick="setSpeed(200)">5×</button>
+            </div>
+          </div>
+          <div class="control-block save-block">
+            <span class="control-label">Správa hry</span>
+            <div class="toolbar">
+              <button onclick="exportData()">↓ Uložit postup</button>
+              <label class="file-control"><input type="file" id="importFile" accept=".txt"><span>Vybrat soubor</span></label>
+              <button onclick="parseImportedDataFromFile()">↑ Načíst</button>
+              <button class="danger ghost" onclick="newGame()">Nová hra</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card indicator-card">
+          <div>
+            <span class="eyebrow">Analytické nástroje</span>
+            <strong>Co ti trh napovídá?</strong>
+          </div>
+          <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"><span>EMA 20</span></label>
+          <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"><span>EMA 50</span></label>
+          <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"><span>RSI</span></label>
+          <p>Indikátory pomáhají číst trend, ale budoucnost nikdy nezaručí.</p>
+        </section>
+
+        <section class="card chart-card">
+          <div class="chart-heading">
+            <div>
+              <span class="eyebrow">Aktuální trh</span>
+              <h2>Cenový vývoj</h2>
+            </div>
+            <div class="price-badge"><span>Cena akcie</span><strong id="price">100</strong></div>
+          </div>
+          <div id="chartContainer">
+            <canvas id="chart"></canvas>
+          </div>
+          <div class="chart-lesson"><span>📘</span><p><strong>Co právě sleduješ?</strong> Svíčka ukazuje otevírací, nejvyšší, nejnižší a uzavírací cenu v jednom období.</p></div>
+        </section>
+
+        <section class="card trade-card">
+          <div class="trade-form">
+            <div class="section-title">
+              <div><span class="eyebrow">Investiční rozhodnutí</span><h2>Otevřít pozici</h2></div>
+              <span class="risk-badge">Riziková zóna</span>
+            </div>
+            <div class="input-grid">
+              <label><span>Stop Loss</span><input type="number" id="sl" placeholder="Např. 95"></label>
+              <label><span>Take Profit</span><input type="number" id="tp" placeholder="Např. 110"></label>
+              <label><span>Objem (lot)</span><input type="number" id="volume" placeholder="Např. 10" step="0.01" oninput="calculateCost()"></label>
+              <label><span>% hotovosti</span><input type="number" id="buyPercent" placeholder="Např. 10" step="0.1" min="0" max="100" oninput="calculateCost()"></label>
+            </div>
+            <div class="trade-actions">
+              <div class="cost-box"><span>Hodnota pozice</span><strong id="cost">0</strong></div>
+              <button class="buy-btn" onclick="buy()"><span>↗</span> BUY</button>
+              <button class="sell-btn" onclick="sell()"><span>↘</span> SELL</button>
+            </div>
+            <p id="status" class="status" aria-live="polite"></p>
+          </div>
+          <aside class="risk-lesson">
+            <span class="lesson-symbol">🛡️</span>
+            <span class="eyebrow">Lekce o riziku</span>
+            <h3>Neinvestuj vše do jedné sázky</h3>
+            <p>Stop Loss omezuje možnou ztrátu. Velikost pozice určuje, jak silně jeden obchod zasáhne celé portfolio.</p>
+            <div class="lesson-rule"><b>Pravidlo hry</b><span>Nejdřív chraň kapitál, potom hledej výnos.</span></div>
+          </aside>
+        </section>
+
+        <section class="info-card">
+          <article class="card">
+            <div class="panel-heading"><div><span class="eyebrow">Aktivní trh</span><h3>Obchody této akcie</h3></div></div>
+            <div id="trades"></div>
+          </article>
+          <article class="card">
+            <div class="panel-heading"><div><span class="eyebrow">Celé portfolio</span><h3>Všechny otevřené pozice</h3></div></div>
+            <div id="globalOpenPositions"></div>
+          </article>
+        </section>
       </div>
 
-      <div class="toolbar">
-        <button onclick="exportData()">📥 Exportovat data</button>
-        <input type="file" id="importFile" accept=".txt">
-        <button onclick="parseImportedDataFromFile()">📤 Načíst data</button>
+      <section id="realEstatePage" class="portfolio-page hidden">
+        <div class="portfolio-card">
+          <div class="world-header realestate-world">
+            <div><span class="chapter-tag">Kapitola 2</span><h2>Svět nemovitostí</h2><p>Nájem vytváří cashflow. Hodnota majetku roste, ale údržba nikdy nespí.</p></div>
+            <button onclick="openTrading()">← Zpět na burzu</button>
+          </div>
+          <div class="lesson-strip"><span>🏠</span><p><strong>Lekce:</strong> Vysoká hodnota nemovitosti neznamená automaticky dobrý výnos. Sleduj poměr nájmu, ceny a nákladů.</p></div>
+          <div id="realEstateGrid" class="realestate-grid"></div>
+        </div>
+      </section>
+
+      <section id="loansPage" class="portfolio-page hidden">
+        <div class="portfolio-card">
+          <div class="world-header loan-world">
+            <div><span class="chapter-tag">Kapitola 4</span><h2>Banka a cizí kapitál</h2><p>Půjčka může urychlit růst, ale každá budoucí splátka omezuje tvoje možnosti.</p></div>
+            <button onclick="openTrading()">← Zpět na burzu</button>
+          </div>
+          <div class="lesson-strip warning"><span>⚠️</span><p><strong>Lekce:</strong> Neřeš jen výši půjčky. Sleduj celkovou cenu dluhu a jestli splátku unese tvoje cashflow.</p></div>
+          <div class="card loan-console">
+            <div class="loan-overview">
+              <span>Tvůj dostupný limit</span>
+              <strong id="loanMaxValue"></strong>
+              <p>Úrok 5 % · 60 měsíčních splátek</p>
+            </div>
+            <div id="loanPresetButtons" class="loan-options"></div>
+            <div class="toolbar loan-actions">
+              <button class="primary" onclick="borrowLoan()">Přijmout půjčku</button>
+              <button onclick="repayLoan()">Předčasně splatit</button>
+            </div>
+            <div id="loanInfo" class="loan-info"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="businessPage" class="portfolio-page hidden">
+        <div class="portfolio-card">
+          <div class="world-header business-world">
+            <div><span class="chapter-tag">Kapitola 3</span><h2>Podnikatelská čtvrť</h2><p>Nakupuj, prodávej, zaměstnávej a uč se rozdíl mezi obratem a skutečným ziskem.</p></div>
+            <button onclick="openTrading()">← Zpět na burzu</button>
+          </div>
+          <div class="lesson-strip"><span>🏪</span><p><strong>Lekce:</strong> Růst firmy potřebuje kapitál. Zaměstnanec zvýší výkon, ale přidá pravidelný náklad.</p></div>
+          <div id="businessGrid" class="realestate-grid"></div>
+        </div>
+      </section>
+
+      <section id="milestonesPage" class="portfolio-page hidden">
+        <div class="portfolio-card">
+          <div class="world-header milestone-world">
+            <div><span class="chapter-tag">Síň úspěchů</span><h2>Výzvy a milníky</h2><p>Skutečný pokrok není jeden šťastný obchod, ale dlouhodobě silnější finanční pozice.</p></div>
+            <button onclick="openTrading()">← Zpět na burzu</button>
+          </div>
+          <div class="card milestone-card">
+            <div class="trophy">🏆</div>
+            <span class="eyebrow">První výzva</span>
+            <h3>Vydělej 10 000 💵</h3>
+            <p>Započítává se růst čistého jmění po odečtení dluhů.</p>
+            <div class="milestone-progress-wrap"><div id="milestoneProgressBar" class="milestone-progress-bar"></div></div>
+            <p id="milestoneProgressText">0 / 10 000 💵</p>
+          </div>
+          <div class="locked-challenges">
+            <article><span>🔒</span><strong>Stabilní rezerva</strong><small>Další kapitola</small></article>
+            <article><span>🔒</span><strong>První pasivní příjem</strong><small>Další kapitola</small></article>
+            <article><span>🔒</span><strong>Diverzifikované portfolio</strong><small>Další kapitola</small></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="cheatsPage" class="portfolio-page hidden">
+        <div class="portfolio-card">
+          <div class="world-header lab-world">
+            <div><span class="chapter-tag">Vývojářská zóna</span><h2>Finanční laboratoř</h2><p>Testuj scénáře bez omezení. Změny se zapíšou do historie hry.</p></div>
+            <button onclick="openTrading()">← Zpět na burzu</button>
+          </div>
+          <div class="card lab-card">
+            <span class="lesson-symbol">🧪</span>
+            <h3>Nastavit volné prostředky</h3>
+            <p>Používej pro testování herních systémů, ne jako investiční strategii.</p>
+            <div class="toolbar">
+              <input type="number" id="cheatBalanceInput" placeholder="Nová hodnota">
+              <button class="primary" onclick="applyCheatBalance()">Nastavit prostředky</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="card dividend-sidebar">
+      <div class="panel-heading">
+        <div><span class="eyebrow">Deník hráče</span><h3>Události</h3></div>
+        <span class="event-icon">⚡</span>
       </div>
-    </section>
-
-    <section class="card indicator-card">
-      <strong>Indikátory:</strong>
-      <label><input type="checkbox" id="toggleEma20" checked onchange="setIndicatorVisibility()"> EMA 20</label>
-      <label><input type="checkbox" id="toggleEma50" checked onchange="setIndicatorVisibility()"> EMA 50</label>
-      <label><input type="checkbox" id="toggleRsi" checked onchange="setIndicatorVisibility()"> RSI</label>
-    </section>
-
-    <section class="card chart-card">
-      <p class="price-line">Cena: <span id="price">100</span></p>
-      <div id="chartContainer" style="width:100%; height:500px;">
-          <canvas id="chart"></canvas>
-      </div>
-    </section>
-
-    <section class="card trade-card">
-      <div class="input-grid">
-        <input type="number" id="sl" placeholder="Stop Loss">
-        <input type="number" id="tp" placeholder="Take Profit">
-        <input type="number" id="volume" placeholder="Vol (lot)" step="0.01" oninput="calculateCost()">
-        <input type="number" id="buyPercent" placeholder="% nákupu" step="0.1" min="0" max="100" oninput="calculateCost()">
-      </div>
-      <p class="cost-line">Cost: <span id="cost">0</span></p>
-
-      <div class="toolbar">
-        <button class="buy-btn" onclick="buy()">BUY</button>
-        <button class="sell-btn" onclick="sell()">SELL</button>
-      </div>
-
-      <p id="status" class="status"></p>
-    </section>
-
-    <section class="card info-card">
-      <div>
-        <h3>Obchody</h3>
-        <div id="trades"></div>
-      </div>
-
-      <div>
-        <h3>Otevřené pozice (všechny akcie)</h3>
-        <div id="globalOpenPositions"></div>
-      </div>
-
-    </section>
+      <p class="panel-description">Tady uvidíš důsledky všech svých finančních rozhodnutí.</p>
+      <div id="transactionHistory"></div>
+    </aside>
   </div>
 
-  <section id="realEstatePage" class="portfolio-page hidden">
-    <div class="card portfolio-card">
-      <div class="portfolio-header">
-        <h2>Nemovitosti</h2>
-        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+  <section id="portfolioPage" class="portfolio-page standalone-page hidden">
+    <div class="portfolio-card wide">
+      <div class="world-header portfolio-world">
+        <div><span class="chapter-tag">Strategické centrum</span><h2>Moje portfolio</h2><p>Podívej se, kde pracují tvoje peníze a odkud přichází cashflow.</p></div>
+        <button onclick="closePortfolio()">← Zpět do hry</button>
       </div>
-      <div id="realEstateGrid" class="realestate-grid"></div>
-    </div>
-  </section>
-
-  <section id="loansPage" class="portfolio-page hidden">
-    <div class="card portfolio-card">
-      <div class="portfolio-header">
-        <h2>Půjčky</h2>
-        <button onclick="openTrading()">⬅ Zpět na Trading</button>
-      </div>
-      <div class="realestate-card">
-        <p>Max půjčka: <strong id="loanMaxValue"></strong></p>
-        <p>Úrok: <strong>5 %</strong> | Doba: <strong>5 let (60 splátek)</strong></p>
-        <div id="loanPresetButtons" class="toolbar"></div>
-        <div class="toolbar">
-          <button onclick="borrowLoan()">Půjčit</button>
-          <button onclick="repayLoan()">Vrátit půjčku</button>
-        </div>
-        <div id="loanInfo"></div>
+      <div class="portfolio-dashboard">
+        <article class="card chart-panel"><span class="eyebrow">Rozložení majetku</span><h3>Portfolio</h3><canvas id="portfolioChart" width="520" height="520"></canvas><div id="portfolioLegend" class="portfolio-legend"></div></article>
+        <article class="card chart-panel"><span class="eyebrow">Co ti vydělává</span><h3>Příjmy</h3><canvas id="incomeChart" width="520" height="520"></canvas><div id="incomeLegend" class="portfolio-legend"></div></article>
+        <article class="card chart-panel"><span class="eyebrow">Kam peníze odtékají</span><h3>Náklady</h3><canvas id="costChart" width="520" height="520"></canvas><div id="costLegend" class="portfolio-legend"></div></article>
       </div>
     </div>
   </section>
 
-  <section id="businessPage" class="portfolio-page hidden">
-    <div class="card portfolio-card">
-      <div class="portfolio-header">
-        <h2>Business</h2>
-        <button onclick="openTrading()">⬅ Zpět na Trading</button>
+  <section id="accountHistoryPage" class="portfolio-page standalone-page hidden">
+    <div class="portfolio-card wide">
+      <div class="world-header history-world">
+        <div><span class="chapter-tag">Dlouhodobý pohled</span><h2>Vývoj čistého jmění</h2><p>Krátkodobé výkyvy jsou běžné. Důležitý je směr v delším období.</p></div>
+        <button onclick="closeAccountHistory()">← Zpět do hry</button>
       </div>
-      <div id="businessGrid" class="realestate-grid"></div>
-    </div>
-  </section>
-
-  <section id="milestonesPage" class="portfolio-page hidden">
-    <div class="card portfolio-card">
-      <div class="portfolio-header">
-        <h2>Milníky</h2>
-        <button onclick="openTrading()">⬅ Zpět na Trading</button>
-      </div>
-      <div class="realestate-card">
-        <p>První milník: vydělat <strong>10 000 💵</strong></p>
-        <div class="milestone-progress-wrap">
-          <div id="milestoneProgressBar" class="milestone-progress-bar"></div>
-        </div>
-        <p id="milestoneProgressText">0 / 10 000 💵</p>
+      <div class="card history-chart-card">
+        <canvas id="accountHistoryChart" width="960" height="500"></canvas>
+        <div id="accountHistoryLegend" class="portfolio-legend"></div>
       </div>
     </div>
   </section>
 
-  <section id="cheatsPage" class="portfolio-page hidden">
-    <div class="card portfolio-card">
-      <div class="portfolio-header">
-        <h2>Cheats</h2>
-        <button onclick="openTrading()">⬅ Zpět na Trading</button>
-      </div>
-      <div class="realestate-card">
-        <p>Nastav si přesnou hodnotu <strong>Volných prostředků</strong>.</p>
-        <div class="toolbar">
-          <input type="number" id="cheatBalanceInput" placeholder="Nová hodnota (💵)">
-          <button onclick="applyCheatBalance()">Nastavit prostředky</button>
-        </div>
-      </div>
-    </div>
-  </section>
-</main>
-
-<aside class="card dividend-sidebar">
-  <h3>Peněžní transakce</h3>
-  <div id="transactionHistory"></div>
-</aside>
-</div>
-
-<section id="portfolioPage" class="portfolio-page hidden">
-  <div class="card portfolio-card">
-    <div class="portfolio-header">
-      <h2>Portfolio</h2>
-      <button onclick="closePortfolio()">⬅ Zpět do hry</button>
-    </div>
-    <canvas id="portfolioChart" width="520" height="520"></canvas>
-    <div id="portfolioLegend" class="portfolio-legend"></div>
-    <h3>Příjmy</h3>
-    <canvas id="incomeChart" width="520" height="520"></canvas>
-    <div id="incomeLegend" class="portfolio-legend"></div>
-    <h3>Náklady</h3>
-    <canvas id="costChart" width="520" height="520"></canvas>
-    <div id="costLegend" class="portfolio-legend"></div>
-  </div>
-</section>
-
-<section id="accountHistoryPage" class="portfolio-page hidden">
-  <div class="card portfolio-card">
-    <div class="portfolio-header">
-      <h2>Stav účtu v čase</h2>
-      <button onclick="closeAccountHistory()">⬅ Zpět do hry</button>
-    </div>
-    <canvas id="accountHistoryChart" width="960" height="500"></canvas>
-    <div id="accountHistoryLegend" class="portfolio-legend"></div>
-  </div>
-</section>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
