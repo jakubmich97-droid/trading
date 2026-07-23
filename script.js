@@ -563,11 +563,20 @@ function updatePrice() {
     calculateCost();
 }
 
-let timer = setInterval(updatePrice, 1000);
+let currentSpeed = 1000;
+let timer = setInterval(updatePrice, currentSpeed);
 
 function setSpeed(ms) {
+    currentSpeed = Number(ms);
     clearInterval(timer);
-    if (ms > 0) timer = setInterval(updatePrice, ms);
+    timer = null;
+    if (currentSpeed > 0) timer = setInterval(updatePrice, currentSpeed);
+
+    document.querySelectorAll(".speed-toolbar [data-speed]").forEach(button => {
+        const isActive = Number(button.dataset.speed) === currentSpeed;
+        button.classList.toggle("speed-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+    });
 }
 
 setInterval(saveGameState, AUTOSAVE_INTERVAL);
