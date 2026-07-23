@@ -25,6 +25,7 @@ window.addEventListener("load", () => {
         calculateCost();
         drawChart();
     }
+    renderWorldPanel();
     refreshSaveSlots();
     updateAutosaveStatus(loaded ? "Automatický postup načten" : "Automatické ukládání aktivní");
 });
@@ -53,7 +54,7 @@ const MAX_LEVERAGE = 5;
 const STORAGE_KEY = "tradingGameState";
 const SAVE_SLOT_PREFIX = "investQuestSaveSlot";
 const AUTOSAVE_INTERVAL = 10000;
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 const TRANSACTION_HISTORY_LIMIT = 1000;
 const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
@@ -371,6 +372,482 @@ let businessState = {
     }
 };
 
+
+const MONTH_NAMES = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
+
+const ECONOMIC_CYCLES = {
+    expansion: {
+        name: "Expanze", icon: "🟢", next: "slowdown",
+        duration: [14, 22],
+        lesson: "V expanzi rostou zisky i optimismus. Právě tehdy je snadné podcenit riziko.",
+        impacts: { stockDrift: 0.010, propertyGrowth: 0.00045, businessRevenue: 1.10, rentMultiplier: 1.04, volatility: 0.95 }
+    },
+    slowdown: {
+        name: "Zpomalení", icon: "🟡", next: "recession",
+        duration: [8, 14],
+        lesson: "Zpomalení prověřuje rezervu a kvalitu investic dřív, než přijde skutečná recese.",
+        impacts: { stockDrift: -0.002, propertyGrowth: 0, businessRevenue: 0.94, rentMultiplier: 1, volatility: 1.12 }
+    },
+    recession: {
+        name: "Recese", icon: "🔴", next: "recovery",
+        duration: [7, 12],
+        lesson: "Recese ničí slabé projekty, ale dlouhodobým investorům vytváří levnější vstupy.",
+        impacts: { stockDrift: -0.014, propertyGrowth: -0.0011, businessRevenue: 0.79, rentMultiplier: 0.94, volatility: 1.48, maintenance: 1.08 }
+    },
+    recovery: {
+        name: "Oživení", icon: "🔵", next: "expansion",
+        duration: [8, 15],
+        lesson: "Oživení často začíná dříve, než ekonomické zprávy vypadají optimisticky.",
+        impacts: { stockDrift: 0.007, propertyGrowth: 0.0002, businessRevenue: 1.04, rentMultiplier: 1.01, volatility: 1.18 }
+    }
+};
+
+const WORLD_EVENTS = [
+    { id: "tech_boom", icon: "🚀", title: "Technologický boom", description: "Investoři přesouvají kapitál do růstových firem.", duration: 6, lesson: "Sektorový boom může zvednout výnos, ale také koncentraci rizika.", impacts: { growthDrift: 0.030, dividendDrift: -0.004, volatility: 1.16 } },
+    { id: "rate_hike", icon: "🏦", title: "Růst úrokových sazeb", description: "Dražší financování ochlazuje reality a růstové firmy.", duration: 7, lesson: "Vyšší sazby snižují současnou hodnotu budoucích zisků a zdražují úvěry.", impacts: { growthDrift: -0.020, dividendDrift: 0.004, propertyGrowth: -0.001, businessRevenue: 0.94 } },
+    { id: "consumer_crisis", icon: "🛒", title: "Krize spotřeby", description: "Domácnosti omezují nákupy a firmy bojují o zákazníky.", duration: 5, lesson: "Tržby podnikání jsou cyklické. Rezerva pomáhá přežít slabší poptávku.", impacts: { businessRevenue: 0.76, dividendDrift: -0.006 } },
+    { id: "new_highway", icon: "🛣️", title: "Nová infrastruktura", description: "Lepší dostupnost zvyšuje atraktivitu nemovitostí.", duration: 9, lesson: "Hodnotu reality neurčuje jen stav budovy, ale také její okolí.", impacts: { propertyGrowth: 0.0013, rentMultiplier: 1.08 } },
+    { id: "market_selloff", icon: "📉", title: "Výprodej na trzích", description: "Strach investorů stlačuje ceny napříč burzou.", duration: 4, lesson: "Pokles ceny není automaticky ztráta kvality. Rozhoduje důvod a časový horizont.", impacts: { stockDrift: -0.026, volatility: 1.60 } },
+    { id: "inflation_wave", icon: "🔥", title: "Inflační vlna", description: "Ceny, nájmy i provozní náklady rychle rostou.", duration: 8, lesson: "Inflace pomáhá některým reálným aktivům, ale poškozuje hotovost a marže.", impacts: { propertyGrowth: 0.0009, rentMultiplier: 1.11, maintenance: 1.18, businessRevenue: 0.96 } },
+    { id: "energy_shock", icon: "⚡", title: "Energetický šok", description: "Provoz budov a podniků skokově zdražuje.", duration: 5, lesson: "Fixní náklady mohou z bezpečné investice rychle udělat problém.", impacts: { maintenance: 1.38, businessRevenue: 0.88, dividendDrift: -0.005 } },
+    { id: "tourism_wave", icon: "🧳", title: "Silná turistická sezóna", description: "Služby a pronájmy těží z přílivu návštěvníků.", duration: 4, lesson: "Dočasný růst příjmů není totéž jako dlouhodobě udržitelný výnos.", impacts: { rentMultiplier: 1.16, businessRevenue: 1.13 } },
+    { id: "housing_shortage", icon: "🏘️", title: "Nedostatek bydlení", description: "Malá nabídka tlačí ceny a nájmy vzhůru.", duration: 10, lesson: "Omezená nabídka podporuje cenu, ale může vyvolat regulaci.", impacts: { propertyGrowth: 0.0015, rentMultiplier: 1.12 } },
+    { id: "new_regulation", icon: "📜", title: "Nová regulace", description: "Majitelům nemovitostí a firmám přibývají náklady.", duration: 7, lesson: "Regulatorní riziko nelze odstranit, ale lze ho rozložit diverzifikací.", impacts: { maintenance: 1.22, businessRevenue: 0.91, propertyGrowth: -0.0003 } },
+    { id: "tax_relief", icon: "🎁", title: "Daňová úleva pro firmy", description: "Podnikům zůstává více peněz na investice.", duration: 6, lesson: "Změna daní ovlivňuje čistý zisk, a tím i hodnotu firem.", impacts: { businessRevenue: 1.18, stockDrift: 0.010 } },
+    { id: "strong_jobs", icon: "👷", title: "Silný pracovní trh", description: "Rostoucí mzdy podporují spotřebu i nájmy.", duration: 6, lesson: "Více příjmů domácností podporuje ekonomiku, ale může zesílit inflaci.", impacts: { businessRevenue: 1.10, rentMultiplier: 1.06, volatility: 1.06 } },
+    { id: "banking_panic", icon: "🏚️", title: "Bankovní panika", description: "Likvidita mizí a investoři hledají bezpečí.", duration: 3, lesson: "Likvidní rezerva má největší hodnotu právě tehdy, když ji ostatní nemají.", impacts: { stockDrift: -0.032, propertyGrowth: -0.0014, volatility: 1.82 } },
+    { id: "green_subsidy", icon: "🌱", title: "Zelené dotace", description: "Nové pobídky podporují modernizaci firem a budov.", duration: 8, lesson: "Dotace mohou změnit návratnost projektu, ale neměly by být jeho jediným důvodem.", impacts: { propertyGrowth: 0.0007, businessRevenue: 1.08, growthDrift: 0.010 } },
+    { id: "logistics_boost", icon: "📦", title: "Levnější logistika", description: "Doprava zboží zrychluje a marže e-shopů rostou.", duration: 5, lesson: "Vyšší marže může vzniknout růstem ceny i poklesem nákladů.", impacts: { businessRevenue: 1.21, growthDrift: 0.006 } }
+];
+
+const WORLD_OPPORTUNITIES = [
+    { id: "property_auction", icon: "🏷️", title: "Dražba nemovitostí", description: "Nákupní ceny realit jsou dočasně o 15 % nižší.", duration: 4, impacts: { propertyDiscount: 0.15 } },
+    { id: "supplier_window", icon: "📦", title: "Výhodný dodavatel", description: "E-shop prodává zboží s o 25 % vyšší marží.", duration: 5, impacts: { goodsSale: 1.25 } },
+    { id: "rent_demand", icon: "🔑", title: "Nájemní špička", description: "Nájemné přináší o 20 % vyšší příjem.", duration: 4, impacts: { rentMultiplier: 1.20 } },
+    { id: "flash_crash", icon: "💥", title: "Krátký propad burzy", description: "Akcie zlevnily. Příležitost trvá jen několik měsíců.", duration: 3, impacts: { stockDrift: 0.010, volatility: 1.25 }, immediateDrop: 0.08 }
+];
+
+const WORLD_DECISIONS = [
+    {
+        id: "tech_wave", icon: "🧠", title: "Vsadíš na novou technologii?",
+        description: "Začínající technologický trend může změnit celý trh. Výsledek ale zatím není jistý.",
+        context: "Vyšší potenciální výnos znamená také vyšší pravděpodobnost ztráty.",
+        options: [
+            { action: "invest", label: "Investovat 10 000 💵", detail: "65% šance na silný růstový impuls.", cost: 10000, risky: true },
+            { action: "watch", label: "Pouze sledovat", detail: "Bez finančního rizika, menší zkušenost." }
+        ]
+    },
+    {
+        id: "recession_warning", icon: "🛡️", title: "Trh varuje před recesí",
+        description: "Volatilita roste a analytici se neshodnou, zda přijde hlubší propad.",
+        context: "Pojištění snižuje riziko, ale vždy něco stojí.",
+        options: [
+            { action: "hedge", label: "Zaplatit ochranu 5 000 💵", detail: "Na šest měsíců výrazně sníží volatilitu.", cost: 5000 },
+            { action: "hold", label: "Držet plán", detail: "Nic nestojí, ale portfolio zůstane vystavené trhu.", risky: true }
+        ]
+    },
+    {
+        id: "city_project", icon: "🏗️", title: "Město plánuje novou čtvrť",
+        description: "Můžeš si předem rezervovat účast na projektu, jeho schválení ale není jisté.",
+        context: "Investice před potvrzením projektu nabízí slevu výměnou za nejistotu.",
+        options: [
+            { action: "reserve", label: "Rezervovat za 20 000 💵", detail: "60% šance na výrazný růst realit.", cost: 20000, risky: true },
+            { action: "skip", label: "Počkat na jistotu", detail: "Bez rizika i bez výhody." }
+        ]
+    },
+    {
+        id: "viral_shop", icon: "📣", title: "E-shop může spustit virální kampaň",
+        description: "Agentura nabízí rychlou kampaň s potenciálem zvýšit prodeje.",
+        context: "Marketing nezaručuje úspěch. Bez vlastního e-shopu je placená varianta nedostupná.",
+        requiresBusiness: true,
+        options: [
+            { action: "campaign", label: "Investovat 15 000 💵", detail: "Na šest měsíců zvýší tržby e-shopu.", cost: 15000, risky: true },
+            { action: "organic", label: "Růst organicky", detail: "Pomalejší cesta bez finančního rizika." }
+        ]
+    },
+    {
+        id: "education", icon: "🎓", title: "Nabídka investičního kurzu",
+        description: "Můžeš investovat do znalostí, nebo pokračovat metodou pokus–omyl.",
+        context: "Znalosti nezaručí zisk, ale zlepšují kvalitu budoucích rozhodnutí.",
+        options: [
+            { action: "course", label: "Kurz za 5 000 💵", detail: "Získáš 350 XP.", cost: 5000 },
+            { action: "self_study", label: "Studovat samostatně", detail: "Získáš 100 XP bez nákladů." }
+        ]
+    }
+];
+
+function randomBetween(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function createDefaultEconomyState() {
+    return {
+        cycle: "expansion",
+        cycleMonthsLeft: 18,
+        activeEvents: [],
+        opportunity: null,
+        news: [],
+        nextEventIn: 3,
+        nextDecisionIn: 6,
+        nextOpportunityIn: 5,
+        pendingDecision: null,
+        resumeSpeed: 1000,
+        decisionsMade: 0
+    };
+}
+
+let economyState = createDefaultEconomyState();
+
+function normalizeEconomyState(value) {
+    const defaults = createDefaultEconomyState();
+    if (!value || typeof value !== "object") return defaults;
+    return {
+        ...defaults,
+        ...value,
+        cycle: ECONOMIC_CYCLES[value.cycle] ? value.cycle : defaults.cycle,
+        cycleMonthsLeft: Math.max(1, Number(value.cycleMonthsLeft) || defaults.cycleMonthsLeft),
+        activeEvents: Array.isArray(value.activeEvents) ? value.activeEvents.filter(event => Number(event.remaining) > 0) : [],
+        opportunity: value.opportunity && Number(value.opportunity.remaining) > 0 ? value.opportunity : null,
+        news: Array.isArray(value.news) ? value.news.slice(0, 6) : [],
+        pendingDecision: value.pendingDecision || null
+    };
+}
+
+function addWorldNews(icon, title) {
+    economyState.news.unshift({ icon, title, month: elapsedMonths });
+    economyState.news = economyState.news.slice(0, 6);
+}
+
+function showGameToast(title, detail, tone = "lesson") {
+    const stack = document.getElementById("gameToastStack");
+    if (!stack) return;
+    const toast = document.createElement("article");
+    toast.className = `game-toast ${tone}`;
+    toast.innerHTML = `<strong>${title}</strong><span>${detail}</span>`;
+    stack.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 6500);
+}
+
+function awardWorldXp(amount, reason) {
+    challengeState = normalizeChallengeState(challengeState);
+    challengeState.xp = round2(challengeState.xp + amount);
+    renderMilestones();
+    showGameToast(`+${amount} XP · ${reason}`, "Zkušenosti získáváš za rozhodování a pochopení souvislostí.", "positive");
+}
+
+function addTemporaryWorldEffect(effect) {
+    economyState.activeEvents.push({
+        id: effect.id,
+        icon: effect.icon || "✨",
+        title: effect.title,
+        description: effect.description,
+        lesson: effect.lesson || "",
+        remaining: effect.duration,
+        duration: effect.duration,
+        impacts: effect.impacts || {}
+    });
+    addWorldNews(effect.icon || "✨", effect.title);
+}
+
+function getWorldModifiers() {
+    economyState = normalizeEconomyState(economyState);
+    const cycle = ECONOMIC_CYCLES[economyState.cycle];
+    const result = {
+        stockDrift: Number(cycle.impacts.stockDrift) || 0,
+        growthDrift: 0,
+        dividendDrift: 0,
+        propertyGrowth: Number(cycle.impacts.propertyGrowth) || 0,
+        businessRevenue: Number(cycle.impacts.businessRevenue) || 1,
+        rentMultiplier: Number(cycle.impacts.rentMultiplier) || 1,
+        maintenance: Number(cycle.impacts.maintenance) || 1,
+        volatility: Number(cycle.impacts.volatility) || 1,
+        propertyDiscount: 0,
+        goodsSale: 1
+    };
+
+    const sources = economyState.activeEvents.map(event => event.impacts || {});
+    if (economyState.opportunity) sources.push(economyState.opportunity.impacts || {});
+    sources.forEach(impact => {
+        result.stockDrift += Number(impact.stockDrift) || 0;
+        result.growthDrift += Number(impact.growthDrift) || 0;
+        result.dividendDrift += Number(impact.dividendDrift) || 0;
+        result.propertyGrowth += Number(impact.propertyGrowth) || 0;
+        result.businessRevenue *= Number(impact.businessRevenue) || 1;
+        result.rentMultiplier *= Number(impact.rentMultiplier) || 1;
+        result.maintenance *= Number(impact.maintenance) || 1;
+        result.volatility *= Number(impact.volatility) || 1;
+        result.propertyDiscount = Math.max(result.propertyDiscount, Number(impact.propertyDiscount) || 0);
+        result.goodsSale *= Number(impact.goodsSale) || 1;
+    });
+    return result;
+}
+
+function getRealEstatePurchasePrice(item) {
+    const discount = getWorldModifiers().propertyDiscount;
+    return round2(item.value * (1 - discount));
+}
+
+function startNextEconomicCycle() {
+    const previous = ECONOMIC_CYCLES[economyState.cycle];
+    economyState.cycle = previous.next;
+    const next = ECONOMIC_CYCLES[economyState.cycle];
+    economyState.cycleMonthsLeft = randomBetween(next.duration[0], next.duration[1]);
+    addWorldNews(next.icon, `Ekonomika vstupuje do fáze: ${next.name}`);
+    showGameToast(`${next.icon} Začíná ${next.name.toLowerCase()}`, next.lesson, "lesson");
+    awardWorldXp(50, "Rozpoznání ekonomického cyklu");
+}
+
+function spawnWorldEvent() {
+    const activeIds = new Set(economyState.activeEvents.map(event => event.id));
+    const pool = WORLD_EVENTS.filter(event => !activeIds.has(event.id));
+    const event = pool[Math.floor(Math.random() * pool.length)];
+    addTemporaryWorldEffect({ ...event, remaining: event.duration });
+    showGameToast(`${event.icon} ${event.title}`, event.description, event.impacts.stockDrift < 0 || event.impacts.businessRevenue < 1 ? "negative" : "positive");
+    window.setTimeout(() => showGameToast("Co ses právě naučil?", event.lesson, "lesson"), 450);
+}
+
+function spawnWorldOpportunity() {
+    const template = WORLD_OPPORTUNITIES[Math.floor(Math.random() * WORLD_OPPORTUNITIES.length)];
+    economyState.opportunity = { ...template, remaining: template.duration };
+    if (template.immediateDrop) {
+        Object.values(assets).forEach(asset => {
+            asset.price = round2(Math.max(0.01, asset.price * (1 - template.immediateDrop)));
+            const candle = asset.candles[asset.candles.length - 1];
+            if (candle) {
+                candle.c = asset.price;
+                candle.l = Math.min(candle.l, asset.price);
+            }
+        });
+    }
+    addWorldNews(template.icon, `Časově omezená příležitost: ${template.title}`);
+    showGameToast(`${template.icon} ${template.title}`, `${template.description} Zbývá ${template.duration} měsíců.`, "positive");
+}
+
+function getEligibleWorldDecisions() {
+    const pool = WORLD_DECISIONS.filter(decision => {
+        if (decision.requiresBusiness) return Number(businessState.shop?.owned) > 0;
+        return true;
+    });
+    return pool.length ? pool : WORLD_DECISIONS.filter(decision => decision.id === "education");
+}
+
+function openWorldDecision() {
+    if (economyState.pendingDecision) return;
+    const pool = getEligibleWorldDecisions();
+    const decision = pool[Math.floor(Math.random() * pool.length)];
+    economyState.resumeSpeed = currentSpeed > 0 ? currentSpeed : 1000;
+    economyState.pendingDecision = { id: decision.id };
+    setSpeed(0);
+    renderWorldDecision();
+}
+
+function renderWorldDecision() {
+    const modal = document.getElementById("worldDecisionModal");
+    if (!modal) return;
+    const decision = WORLD_DECISIONS.find(item => item.id === economyState.pendingDecision?.id);
+    if (!decision) {
+        modal.classList.add("hidden");
+        return;
+    }
+
+    document.getElementById("worldDecisionIcon").textContent = decision.icon;
+    document.getElementById("worldDecisionTitle").textContent = decision.title;
+    document.getElementById("worldDecisionDescription").textContent = decision.description;
+    document.getElementById("worldDecisionContext").textContent = `💡 ${decision.context}`;
+    const options = document.getElementById("worldDecisionOptions");
+    options.innerHTML = decision.options.map(option => {
+        const disabled = Number(option.cost) > balance;
+        return `<button class="decision-option ${option.risky ? "risky" : ""}" ${disabled ? "disabled" : ""} onclick="resolveWorldDecision('${decision.id}', '${option.action}')"><strong>${option.label}</strong><span>${disabled ? "Nedostatek hotovosti" : option.detail}</span></button>`;
+    }).join("");
+    modal.classList.remove("hidden");
+}
+
+function resolveWorldDecision(decisionId, action) {
+    const decision = WORLD_DECISIONS.find(item => item.id === decisionId);
+    if (!decision || economyState.pendingDecision?.id !== decisionId) return;
+    const option = decision.options.find(item => item.action === action);
+    if (!option || Number(option.cost) > balance) return;
+
+    if (option.cost) {
+        balance = round2(balance - option.cost);
+        addTransaction(`Rozhodnutí: ${decision.title}`, -option.cost);
+    }
+
+    let resultTitle = "Rozhodnutí provedeno";
+    let resultDetail = "Každé rozhodnutí mění poměr rizika a možného výnosu.";
+    let tone = "lesson";
+
+    if (decisionId === "tech_wave" && action === "invest") {
+        if (Math.random() < 0.65) {
+            addTemporaryWorldEffect({ id: "tech_success", icon: "🚀", title: "Technologická investice uspěla", description: "Růstové akcie získávají silný impuls.", lesson: "Riziko bylo odměněno, ale stejná volba nemusí vždy dopadnout stejně.", duration: 7, impacts: { growthDrift: 0.032, volatility: 1.18 } });
+            resultTitle = "Technologie prorazila";
+            resultDetail = "Růstové akcie získaly sedmiměsíční impuls.";
+            tone = "positive";
+            awardWorldXp(220, "Promyšlené riziko");
+        } else {
+            resultTitle = "Projekt neuspěl";
+            resultDetail = "Investice se nevrátila. I dobře odůvodněné riziko může skončit ztrátou.";
+            tone = "negative";
+            awardWorldXp(120, "Poučení ze ztráty");
+        }
+    } else if (decisionId === "tech_wave") {
+        awardWorldXp(75, "Trpělivé sledování trhu");
+    } else if (decisionId === "recession_warning" && action === "hedge") {
+        addTemporaryWorldEffect({ id: "portfolio_hedge", icon: "🛡️", title: "Ochrana portfolia", description: "Výkyvy trhu jsou dočasně slabší.", duration: 6, impacts: { volatility: 0.60 } });
+        resultTitle = "Portfolio je chráněné";
+        resultDetail = "Volatilita bude šest měsíců nižší.";
+        tone = "positive";
+        awardWorldXp(160, "Řízení rizika");
+    } else if (decisionId === "recession_warning") {
+        awardWorldXp(100, "Disciplína dlouhodobého investora");
+    } else if (decisionId === "city_project" && action === "reserve") {
+        if (Math.random() < 0.60) {
+            addTemporaryWorldEffect({ id: "city_approved", icon: "🏗️", title: "Projekt byl schválen", description: "Reality v lokalitě rychle získávají hodnotu.", duration: 10, impacts: { propertyGrowth: 0.0022, rentMultiplier: 1.08 } });
+            resultTitle = "Městský projekt schválen";
+            resultDetail = "Reality získaly desetiměsíční růstový impuls.";
+            tone = "positive";
+            awardWorldXp(240, "Investice před potvrzením");
+        } else {
+            resultTitle = "Projekt se odkládá";
+            resultDetail = "Rezervační poplatek propadl. Nejistota byla součástí nabídky.";
+            tone = "negative";
+            awardWorldXp(120, "Pochopení projektového rizika");
+        }
+    } else if (decisionId === "city_project") {
+        awardWorldXp(60, "Odmítnutí nejasného rizika");
+    } else if (decisionId === "viral_shop" && action === "campaign") {
+        addTemporaryWorldEffect({ id: "viral_campaign", icon: "📣", title: "Virální kampaň", description: "E-shop získává více zákazníků.", duration: 6, impacts: { businessRevenue: 1.36 } });
+        resultTitle = "Kampaň nabírá sílu";
+        resultDetail = "Tržby podnikání budou šest měsíců vyšší.";
+        tone = "positive";
+        awardWorldXp(180, "Investice do růstu firmy");
+    } else if (decisionId === "viral_shop") {
+        awardWorldXp(75, "Organický růst");
+    } else if (decisionId === "education" && action === "course") {
+        awardWorldXp(350, "Investice do znalostí");
+        resultTitle = "Nové znalosti odemčeny";
+        resultDetail = "Získal jsi 350 XP. Vzdělání je aktivum, které se neodepisuje propadem trhu.";
+        tone = "positive";
+    } else if (decisionId === "education") {
+        awardWorldXp(100, "Samostatné studium");
+    }
+
+    economyState.pendingDecision = null;
+    economyState.decisionsMade += 1;
+    document.getElementById("worldDecisionModal")?.classList.add("hidden");
+    showGameToast(resultTitle, resultDetail, tone);
+    addWorldNews(decision.icon, `${decision.title}: ${option.label}`);
+    updateAccount();
+    renderWorldPanel();
+    saveGameState();
+    setSpeed(economyState.resumeSpeed || 1000);
+}
+
+function advanceWorldMonth() {
+    economyState = normalizeEconomyState(economyState);
+    economyState.cycleMonthsLeft -= 1;
+    if (economyState.cycleMonthsLeft <= 0) startNextEconomicCycle();
+
+    economyState.activeEvents = economyState.activeEvents
+        .map(event => ({ ...event, remaining: Number(event.remaining) - 1 }))
+        .filter(event => event.remaining > 0);
+
+    if (economyState.opportunity) {
+        economyState.opportunity.remaining -= 1;
+        if (economyState.opportunity.remaining <= 0) {
+            addWorldNews("⌛", `Příležitost skončila: ${economyState.opportunity.title}`);
+            economyState.opportunity = null;
+        }
+    }
+
+    economyState.nextEventIn -= 1;
+    if (economyState.nextEventIn <= 0) {
+        spawnWorldEvent();
+        economyState.nextEventIn = randomBetween(3, 8);
+    }
+
+    economyState.nextOpportunityIn -= 1;
+    if (economyState.nextOpportunityIn <= 0 && !economyState.opportunity) {
+        spawnWorldOpportunity();
+        economyState.nextOpportunityIn = randomBetween(8, 14);
+    }
+
+    economyState.nextDecisionIn -= 1;
+    if (economyState.nextDecisionIn <= 0 && !economyState.pendingDecision) {
+        economyState.nextDecisionIn = randomBetween(7, 12);
+        window.setTimeout(openWorldDecision, 120);
+    }
+
+    renderWorldPanel();
+}
+
+function renderWorldPanel() {
+    economyState = normalizeEconomyState(economyState);
+    const cycle = ECONOMIC_CYCLES[economyState.cycle];
+    const year = Math.floor(elapsedMonths / 12) + 1;
+    const monthName = MONTH_NAMES[elapsedMonths % 12];
+    const latestEvent = economyState.activeEvents[economyState.activeEvents.length - 1];
+    const modifiers = getWorldModifiers();
+
+    const cycleName = document.getElementById("economyCycleName");
+    const cycleIcon = document.getElementById("economyCycleIcon");
+    const calendar = document.getElementById("worldCalendar");
+    const countdown = document.getElementById("cycleCountdown");
+    if (cycleName) cycleName.textContent = cycle.name;
+    if (cycleIcon) cycleIcon.textContent = cycle.icon;
+    if (calendar) calendar.textContent = `Rok ${year} · ${monthName}`;
+    if (countdown) countdown.textContent = `Další fáze přibližně za ${economyState.cycleMonthsLeft} měsíců`;
+
+    const eventIcon = document.getElementById("worldEventIcon");
+    const eventKicker = document.getElementById("worldEventKicker");
+    const eventTitle = document.getElementById("worldEventTitle");
+    const eventDescription = document.getElementById("worldEventDescription");
+    if (latestEvent) {
+        if (eventIcon) eventIcon.textContent = latestEvent.icon;
+        if (eventKicker) eventKicker.textContent = `Aktivní ještě ${latestEvent.remaining} měsíců`;
+        if (eventTitle) eventTitle.textContent = latestEvent.title;
+        if (eventDescription) eventDescription.textContent = latestEvent.description;
+    } else {
+        if (eventIcon) eventIcon.textContent = cycle.icon;
+        if (eventKicker) eventKicker.textContent = "Aktuální ekonomické prostředí";
+        if (eventTitle) eventTitle.textContent = cycle.name;
+        if (eventDescription) eventDescription.textContent = cycle.lesson;
+    }
+
+    const opportunityCard = document.getElementById("opportunityCard");
+    const opportunityTitle = document.getElementById("opportunityTitle");
+    const opportunityDescription = document.getElementById("opportunityDescription");
+    if (economyState.opportunity) {
+        opportunityCard?.classList.add("active");
+        if (opportunityTitle) opportunityTitle.textContent = `${economyState.opportunity.icon} ${economyState.opportunity.title}`;
+        if (opportunityDescription) opportunityDescription.textContent = `${economyState.opportunity.description} Zbývá ${economyState.opportunity.remaining} měs.`;
+    } else {
+        opportunityCard?.classList.remove("active");
+        if (opportunityTitle) opportunityTitle.textContent = "Žádná aktivní";
+        if (opportunityDescription) opportunityDescription.textContent = `Další může přijít za ${economyState.nextOpportunityIn} měsíců.`;
+    }
+
+    const averageStockDrift = modifiers.stockDrift + (modifiers.growthDrift + modifiers.dividendDrift) / 2;
+    const impacts = [
+        { label: `Akcie ${averageStockDrift > 0.004 ? "↗" : averageStockDrift < -0.004 ? "↘" : "→"}`, tone: averageStockDrift > 0.004 ? "positive" : averageStockDrift < -0.004 ? "negative" : "" },
+        { label: `Reality ${modifiers.propertyGrowth > 0.0004 ? "↗" : modifiers.propertyGrowth < 0 ? "↘" : "→"}`, tone: modifiers.propertyGrowth > 0.0004 ? "positive" : modifiers.propertyGrowth < 0 ? "negative" : "" },
+        { label: `Business ${modifiers.businessRevenue > 1.04 ? "↗" : modifiers.businessRevenue < 0.96 ? "↘" : "→"}`, tone: modifiers.businessRevenue > 1.04 ? "positive" : modifiers.businessRevenue < 0.96 ? "negative" : "" },
+        { label: `Riziko ${modifiers.volatility > 1.2 ? "vysoké" : modifiers.volatility < 0.9 ? "nižší" : "běžné"}`, tone: modifiers.volatility > 1.2 ? "negative" : modifiers.volatility < 0.9 ? "positive" : "" }
+    ];
+    const impactRow = document.getElementById("worldImpactRow");
+    if (impactRow) impactRow.innerHTML = impacts.map(item => `<span class="impact-chip ${item.tone}">${item.label}</span>`).join("");
+
+    const feed = document.getElementById("worldNewsFeed");
+    if (feed) {
+        feed.innerHTML = economyState.news.length
+            ? economyState.news.map(item => `<span>${item.icon} ${item.title}</span>`).join("")
+            : "<span>Svět Invest Quest se právě probouzí…</span>";
+    }
+
+    renderWorldDecision();
+}
+
+
 /* ---------------------------------------------------
       CANVAS INIT (RESPONSIVE)
 --------------------------------------------------- */
@@ -504,6 +981,7 @@ function updatePrice() {
         monthTick = 0;
         elapsedMonths += 1;
         monthlyCashflow = { income: 0, expenses: 0 };
+        advanceWorldMonth();
         processRealEstateMonth();
         processBusinessMonth();
         processLoanMonth();
@@ -511,9 +989,13 @@ function updatePrice() {
         renderMonthlyCashflow();
     }
 
+    const worldModifiers = getWorldModifiers();
     Object.entries(assets).forEach(([assetKey, asset]) => {
-        let randomFactor = (Math.random() - 0.5) * asset.volatility;
-        asset.velocity = (asset.velocity + randomFactor) * asset.damping;
+        const sectorDrift = asset.dividendRate > 0
+            ? worldModifiers.dividendDrift
+            : worldModifiers.growthDrift;
+        const randomFactor = (Math.random() - 0.5) * asset.volatility * worldModifiers.volatility;
+        asset.velocity = (asset.velocity + randomFactor + worldModifiers.stockDrift + sectorDrift) * asset.damping;
 
         asset.price += asset.velocity;
         asset.price = Math.max(0.01, Math.round(asset.price * 100) / 100);
@@ -944,6 +1426,14 @@ function openTrade(type) {
 
     addTradeMarker(type);
     renderTrades();
+    const protection = Number.isFinite(sl) || Number.isFinite(tp)
+        ? "Pozice má nastavenou ochranu rizika."
+        : "Pozice nemá Stop Loss ani Take Profit — sleduj ji aktivně.";
+    showGameToast(
+        `${type === "BUY" ? "📈" : "📉"} Pozice #${trade.id} otevřena`,
+        `${formatLeverage(trade)} • marže ${formatCurrencyInt(margin)}. ${protection}`,
+        leverage === MAX_LEVERAGE ? "negative" : "positive"
+    );
 }
 
 /* ---------------------------------------------------
@@ -1160,9 +1650,12 @@ window.closedTrades.push({
         `Trade #${id} uzavřen | ${reason} | P/L: ${pnl}`;
 
     renderTrades();
+    showGameToast(
+        pnl >= 0 ? "✅ Obchod skončil ziskem" : "📉 Obchod skončil ztrátou",
+        `P/L: ${formatCurrencyInt(pnl)}. ${pnl >= 0 ? "Zisk je odměna za podstoupené riziko." : "Ztráta patří k investování — důležitá je její velikost vůči portfoliu."}`,
+        pnl >= 0 ? "positive" : "negative"
+    );
 }
-
-
 
 
 /* ---------------------------------------------------
@@ -1249,12 +1742,18 @@ function buyRealEstate(key) {
     const item = realEstates[key];
     if (!item) return;
     if (item.value <= 0) return alert("Cena této nemovitosti zatím není nastavena.");
-    if (balance < item.value) return alert("Nedostatek volných prostředků.");
+    const purchasePrice = getRealEstatePurchasePrice(item);
+    if (balance < purchasePrice) return alert("Nedostatek volných prostředků.");
 
-    balance = round2(balance - item.value);
+    balance = round2(balance - purchasePrice);
     item.owned += 1;
     recordChallengeEvent("propertiesBought", "realEstate");
-    addTransaction(`Koupeno: ${item.name}`, -item.value);
+    addTransaction(`Koupeno: ${item.name}`, -purchasePrice);
+    if (purchasePrice < item.value) {
+        showGameToast("🏷️ Využitá dražební sleva", `Ušetřil jsi ${formatCurrencyInt(item.value - purchasePrice)}.`, "positive");
+    } else {
+        showGameToast(`🏠 Koupeno: ${item.name}`, "Reality mohou vytvářet nájemní cashflow, ale vyžadují kapitál a údržbu.", "lesson");
+    }
     renderRealEstatePage();
     updateAccount();
 }
@@ -1274,9 +1773,11 @@ function sellRealEstate(key) {
 function processRealEstateMonth() {
     let rentIncome = 0;
     let maintenanceExpense = 0;
+    const worldModifiers = getWorldModifiers();
 
     Object.values(realEstates).forEach(item => {
-        item.value = round2(item.value * (1 + item.growthRate));
+        const effectiveGrowth = Math.max(-0.02, item.growthRate + worldModifiers.propertyGrowth);
+        item.value = round2(item.value * (1 + effectiveGrowth));
         if (typeof item.rentIncreaseBuffer !== "number") item.rentIncreaseBuffer = 0;
         const rentIncrease = item.monthlyRent * item.growthRate;
         item.rentIncreaseBuffer = round2(item.rentIncreaseBuffer + rentIncrease);
@@ -1286,10 +1787,10 @@ function processRealEstateMonth() {
             item.rentIncreaseBuffer = round2(item.rentIncreaseBuffer - rentStepCount * 500);
         }
         if (item.owned > 0 && item.monthlyRent > 0) {
-            rentIncome += item.owned * item.monthlyRent;
+            rentIncome += item.owned * item.monthlyRent * worldModifiers.rentMultiplier;
         }
         if (item.owned > 0 && item.maintenance > 0) {
-            maintenanceExpense += item.owned * item.maintenance;
+            maintenanceExpense += item.owned * item.maintenance * worldModifiers.maintenance;
         }
     });
 
@@ -1317,6 +1818,7 @@ function buyBusinessShop() {
     shop.owned += 1;
     recordChallengeEvent("businessesBought", "business");
     addTransaction("Koupeno: E-shop", -shop.value);
+    showGameToast("🏪 E-shop je tvůj", "Aktivní podnikání může růst rychle, ale jeho výnos závisí na poptávce a provozu.", "lesson");
     renderBusinessPage();
     updateAccount();
 }
@@ -1342,6 +1844,7 @@ function buyCarWash() {
     item.owned += 1;
     recordChallengeEvent("businessesBought", "business");
     addTransaction("Koupeno: Samoobslužná myčka", -item.value);
+    showGameToast("🚿 Myčka je v portfoliu", "Stabilnější podnikání obvykle nabízí nižší růst, ale předvídatelnější cashflow.", "lesson");
     renderBusinessPage();
     updateAccount();
 }
@@ -1395,8 +1898,9 @@ function sellBusinessGoods() {
     if (!businessState.goods.inProgress) return alert("Nejdřív nakup zboží.");
     if (!businessState.goods.readyToSell) return alert("Zboží můžeš prodat až po jednom měsíci.");
 
-    balance = round2(balance + businessState.goods.sellPrice);
-    addTransaction("Prodej zboží (e-shop)", businessState.goods.sellPrice, { affectMonthly: true });
+    const salePrice = round2(businessState.goods.sellPrice * getWorldModifiers().businessRevenue * getWorldModifiers().goodsSale);
+    balance = round2(balance + salePrice);
+    addTransaction("Prodej zboží (e-shop)", salePrice, { affectMonthly: true });
     businessState.goods.inProgress = false;
     businessState.goods.readyToSell = false;
     renderBusinessPage();
@@ -1404,8 +1908,9 @@ function sellBusinessGoods() {
 }
 
 function processBusinessMonth() {
+    const worldModifiers = getWorldModifiers();
     if (businessState.carWash.owned > 0) {
-        const washIncome = round2(businessState.carWash.owned * businessState.carWash.monthlyIncome);
+        const washIncome = round2(businessState.carWash.owned * businessState.carWash.monthlyIncome * worldModifiers.businessRevenue);
         balance = round2(balance + washIncome);
         addTransaction("Příjem: Samoobslužná myčka", washIncome, { affectMonthly: true });
     }
@@ -1417,7 +1922,7 @@ function processBusinessMonth() {
         addTransaction("Mzdy zaměstnanců (e-shop)", -salaryTotal, { affectMonthly: true });
 
         const autoBuy = round2(10000 * employees);
-        const autoSell = round2(autoBuy * 1.1);
+        const autoSell = round2(autoBuy * 1.1 * worldModifiers.businessRevenue * worldModifiers.goodsSale);
 
         if (businessState.staff.autoInProgress) {
             balance = round2(balance + autoSell);
@@ -1675,7 +2180,7 @@ function renderRealEstatePage() {
                 </div>
 
                 <div class="toolbar property-actions">
-                    <button class="buy-btn" onclick="buyRealEstate('${key}')" ${canBuy ? "" : "disabled"}>Koupit za ${formatCurrencyInt(item.value)}</button>
+                    <button class="buy-btn" onclick="buyRealEstate('${key}')" ${canBuy ? "" : "disabled"}>Koupit za ${formatCurrencyInt(getRealEstatePurchasePrice(item))}</button>
                     <button class="sell-btn" onclick="sellRealEstate('${key}')" ${canSell ? "" : "disabled"}>Prodat</button>
                 </div>
             </div>
@@ -2010,7 +2515,11 @@ function claimChallenge(id) {
 
     updateAccount();
     saveGameState();
-    alert(`🏆 Výzva dokončena: ${challenge.title}\n+${challenge.rewardXp} XP a +${formatCurrencyInt(challenge.rewardCash)}`);
+    showGameToast(
+        `🏆 Výzva dokončena: ${challenge.title}`,
+        `+${challenge.rewardXp} XP a +${formatCurrencyInt(challenge.rewardCash)}`,
+        "positive"
+    );
 }
 
 function renderChallenges(financialGrowth = null) {
@@ -2617,6 +3126,7 @@ function buildSaveData() {
             transactionHistory,
             accountHistory
         },
+        world: economyState,
         legacyText: buildSaveText()
     };
 }
@@ -2869,6 +3379,7 @@ function parseImportedData(text, options = {}) {
     const { silent = false } = options;
     const trimmedText = text.trim();
     let importedSpeed = null;
+    let importedWorld = null;
 
     if (trimmedText.startsWith("{")) {
         try {
@@ -2880,6 +3391,7 @@ function parseImportedData(text, options = {}) {
                 throw new Error("Uložená hra pochází z novější verze aplikace.");
             }
             importedSpeed = Number(saveData.market?.speed);
+            importedWorld = saveData.world || null;
             text = saveData.legacyText;
         } catch (error) {
             console.error("Načtení JSON uložené hry selhalo:", error);
@@ -2906,6 +3418,7 @@ function parseImportedData(text, options = {}) {
     };
     monthTick = 0;
     elapsedMonths = 0;
+    economyState = createDefaultEconomyState();
     loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
     let hasAssetStates = false;
@@ -3235,6 +3748,8 @@ function parseImportedData(text, options = {}) {
     renderLoansPage();
     renderGameTime();
     updateLeverageLesson();
+    economyState = normalizeEconomyState(importedWorld || economyState);
+    renderWorldPanel();
     if ([0, 200, 500, 1000].includes(importedSpeed)) setSpeed(importedSpeed);
 
     if (!silent) {
@@ -3325,6 +3840,7 @@ function newGame() {
     };
     monthTick = 0;
     elapsedMonths = 0;
+    economyState = createDefaultEconomyState();
     candles = assets.growth.candles;
     candleIndex = 0;
     tick = 0;
@@ -3365,6 +3881,7 @@ function newGame() {
     renderMilestones(round2(calculateNetWorth() - STARTING_CAPITAL));
     renderMonthlyCashflow();
     renderGameTime();
+    renderWorldPanel();
 }
 
 function syncIndicatorCheckboxes() {
