@@ -54,7 +54,7 @@ const MAX_LEVERAGE = 5;
 const STORAGE_KEY = "tradingGameState";
 const SAVE_SLOT_PREFIX = "investQuestSaveSlot";
 const AUTOSAVE_INTERVAL = 10000;
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 6;
 const TRANSACTION_HISTORY_LIMIT = 1000;
 const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
@@ -322,14 +322,92 @@ let monthlyCashflow = {
     income: 0,
     expenses: 0
 };
-let loanState = {
-    principal: 0,
-    totalDue: 0,
-    remainingBalance: 0,
-    monthlyPayment: 0,
-    remainingInstallments: 0
-};
+function createEmptyLoanState() {
+    return {
+        principal: 0,
+        remainingPrincipal: 0,
+        totalDue: 0,
+        remainingBalance: 0,
+        monthlyPayment: 0,
+        remainingInstallments: 0,
+        termMonths: 60,
+        rateType: "fixed",
+        annualRate: 0,
+        baseRateAtStart: 0,
+        riskPremium: 0,
+        legacyFlat: false,
+        lastInterestCharge: 0
+    };
+}
+
+function normalizeLoanState(value) {
+    if (!value || Number(value.remainingInstallments) <= 0) return createEmptyLoanState();
+    const legacy = !["fixed", "variable"].includes(value.rateType);
+    const remainingPrincipal = Math.max(0, Number(
+        value.remainingPrincipal ??
+        value.remainingBalance ??
+        (Number(value.remainingInstallments) * Number(value.monthlyPayment))
+    ) || 0);
+    return {
+        ...createEmptyLoanState(),
+        ...value,
+        principal: Math.max(0, Number(value.principal) || remainingPrincipal),
+        remainingPrincipal: round2(remainingPrincipal),
+        remainingBalance: round2(remainingPrincipal),
+        monthlyPayment: Math.max(0, round2(value.monthlyPayment || 0)),
+        remainingInstallments: Math.max(0, Math.round(Number(value.remainingInstallments) || 0)),
+        termMonths: Math.max(1, Math.round(Number(value.termMonths) || 60)),
+        rateType: legacy ? "fixed" : value.rateType,
+        annualRate: legacy ? 5 : Math.max(0, Number(value.annualRate) || 0),
+        baseRateAtStart: legacy ? 5 : Math.max(0, Number(value.baseRateAtStart) || 0),
+        riskPremium: legacy ? 0 : Math.max(0, Number(value.riskPremium) || 0),
+        legacyFlat: legacy || Boolean(value.legacyFlat),
+        lastInterestCharge: Math.max(0, Number(value.lastInterestCharge) || 0)
+    };
+}
+
+function getBaseInterestRate() {
+    const cycleRates = {
+        expansion: 4.5,
+        slowdown: 5.5,
+        recession: 3.25,
+        recovery: 3.75
+    };
+    let rate = cycleRates[economyState?.cycle] ?? 4.5;
+    const activeIds = new Set((economyState?.activeEvents || []).map(event => event.id));
+    if (activeIds.has("rate_hike")) rate += 2.5;
+    if (activeIds.has("inflation_wave")) rate += 1.5;
+    if (activeIds.has("banking_panic")) rate += 1;
+    if (activeIds.has("strong_jobs")) rate += 0.35;
+    if (activeIds.has("consumer_crisis")) rate -= 0.5;
+    if (activeIds.has("tax_relief")) rate -= 0.25;
+    return round2(Math.min(12, Math.max(1, rate)));
+}
+
+function getLoanRiskPremium(amount) {
+    const maxLoan = Math.max(1, calculateLoanLimit());
+    const utilization = Math.min(1, Math.max(0, Number(amount) / maxLoan));
+    return round2(1.75 + utilization * 2.5);
+}
+
+function getLoanOfferRate(type = selectedLoanType, amount = selectedLoanAmount) {
+    const baseRate = getBaseInterestRate();
+    const riskPremium = getLoanRiskPremium(Math.max(0, Number(amount) || 0));
+    const fixationPremium = type === "fixed" ? 0.75 : 0;
+    return round2(baseRate + riskPremium + fixationPremium);
+}
+
+function calculateMonthlyPayment(principal, annualRate, months) {
+    principal = Math.max(0, Number(principal) || 0);
+    months = Math.max(1, Math.round(Number(months) || 1));
+    const monthlyRate = Math.max(0, Number(annualRate) || 0) / 1200;
+    if (monthlyRate === 0) return round2(principal / months);
+    return round2(principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -months)));
+}
+
+let loanState = createEmptyLoanState();
 let selectedLoanAmount = 0;
+let selectedLoanType = "fixed";
 const BUSINESS_PROFILES = {
     shop: {
         tier: "STARTUP",
@@ -832,7 +910,8 @@ function renderWorldPanel() {
         { label: `Akcie ${averageStockDrift > 0.004 ? "↗" : averageStockDrift < -0.004 ? "↘" : "→"}`, tone: averageStockDrift > 0.004 ? "positive" : averageStockDrift < -0.004 ? "negative" : "" },
         { label: `Reality ${modifiers.propertyGrowth > 0.0004 ? "↗" : modifiers.propertyGrowth < 0 ? "↘" : "→"}`, tone: modifiers.propertyGrowth > 0.0004 ? "positive" : modifiers.propertyGrowth < 0 ? "negative" : "" },
         { label: `Business ${modifiers.businessRevenue > 1.04 ? "↗" : modifiers.businessRevenue < 0.96 ? "↘" : "→"}`, tone: modifiers.businessRevenue > 1.04 ? "positive" : modifiers.businessRevenue < 0.96 ? "negative" : "" },
-        { label: `Riziko ${modifiers.volatility > 1.2 ? "vysoké" : modifiers.volatility < 0.9 ? "nižší" : "běžné"}`, tone: modifiers.volatility > 1.2 ? "negative" : modifiers.volatility < 0.9 ? "positive" : "" }
+        { label: `Riziko ${modifiers.volatility > 1.2 ? "vysoké" : modifiers.volatility < 0.9 ? "nižší" : "běžné"}`, tone: modifiers.volatility > 1.2 ? "negative" : modifiers.volatility < 0.9 ? "positive" : "" },
+        { label: `Základní sazba ${getBaseInterestRate().toFixed(2)} %`, tone: getBaseInterestRate() >= 6 ? "negative" : getBaseInterestRate() <= 3.5 ? "positive" : "" }
     ];
     const impactRow = document.getElementById("worldImpactRow");
     if (impactRow) impactRow.innerHTML = impacts.map(item => `<span class="impact-chip ${item.tone}">${item.label}</span>`).join("");
@@ -1474,6 +1553,7 @@ function calculateBusinessValue() {
 function calculateOutstandingDebt() {
     if (!loanState || loanState.remainingInstallments <= 0) return 0;
     return round2(
+        loanState.remainingPrincipal ??
         loanState.remainingBalance ??
         (loanState.remainingInstallments * loanState.monthlyPayment)
     );
@@ -1947,27 +2027,54 @@ function processBusinessMonth() {
 }
 
 function processLoanMonth() {
-    if (!loanState.remainingInstallments || loanState.remainingInstallments <= 0) return;
+    loanState = normalizeLoanState(loanState);
+    if (loanState.remainingInstallments <= 0) return;
 
+    if (loanState.rateType === "variable" && !loanState.legacyFlat) {
+        const previousRate = loanState.annualRate;
+        loanState.annualRate = round2(getBaseInterestRate() + loanState.riskPremium);
+        loanState.monthlyPayment = calculateMonthlyPayment(
+            loanState.remainingPrincipal,
+            loanState.annualRate,
+            loanState.remainingInstallments
+        );
+        if (Math.abs(previousRate - loanState.annualRate) >= 0.1) {
+            const direction = loanState.annualRate > previousRate ? "vzrostla" : "klesla";
+            showGameToast(
+                `〽️ Variabilní sazba ${direction}`,
+                `${previousRate.toFixed(2)} % → ${loanState.annualRate.toFixed(2)} %. Nová splátka je ${formatCurrencyInt(loanState.monthlyPayment)}.`,
+                loanState.annualRate > previousRate ? "negative" : "positive"
+            );
+            addWorldNews("🏦", `Variabilní sazba ${direction} na ${loanState.annualRate.toFixed(2)} %`);
+        }
+    }
+
+    const interestCharge = loanState.legacyFlat
+        ? 0
+        : round2(loanState.remainingPrincipal * loanState.annualRate / 1200);
+    const scheduledPayment = Math.max(interestCharge, loanState.monthlyPayment);
     const payment = round2(Math.min(
-        loanState.monthlyPayment,
-        loanState.remainingBalance ?? loanState.totalDue
+        scheduledPayment,
+        loanState.remainingPrincipal + interestCharge
     ));
-    balance = round2(balance - payment);
-    loanState.remainingBalance = round2(
-        Math.max(0, (loanState.remainingBalance ?? loanState.totalDue) - payment)
-    );
-    loanState.remainingInstallments -= 1;
-    addTransaction("Splátka půjčky", -payment, { affectMonthly: true });
+    const principalPaid = loanState.legacyFlat
+        ? payment
+        : round2(Math.max(0, payment - interestCharge));
 
-    if (loanState.remainingInstallments <= 0 || loanState.remainingBalance <= 0) {
-        loanState = {
-            principal: 0,
-            totalDue: 0,
-            remainingBalance: 0,
-            monthlyPayment: 0,
-            remainingInstallments: 0
-        };
+    balance = round2(balance - payment);
+    loanState.remainingPrincipal = round2(Math.max(0, loanState.remainingPrincipal - principalPaid));
+    loanState.remainingBalance = loanState.remainingPrincipal;
+    loanState.lastInterestCharge = interestCharge;
+    loanState.remainingInstallments -= 1;
+    addTransaction(
+        `Splátka půjčky · úrok ${formatCurrencyInt(interestCharge)}`,
+        -payment,
+        { affectMonthly: true }
+    );
+
+    if (loanState.remainingInstallments <= 0 || loanState.remainingPrincipal <= 0.01) {
+        loanState = createEmptyLoanState();
+        showGameToast("🎉 Půjčka je splacená", "Celý dluh byl uhrazen. Uvolnilo se ti měsíční cashflow.", "positive");
     }
 
     if (!document.getElementById("loansPage")?.classList.contains("hidden")) {
@@ -1979,39 +2086,104 @@ function borrowLoan() {
     const maxLoan = calculateLoanLimit();
     const amount = roundDownToHundreds(selectedLoanAmount);
     if (!amount || amount <= 0) return alert("Neplatná výše půjčky.");
-    if (loanState.remainingInstallments > 0) return alert("Nejdřív doplať stávající půjčku.");
+    if (loanState.remainingInstallments > 0) return alert("Nejdřív doplať nebo refinancuj stávající půjčku.");
     if (amount > maxLoan) return alert("Překročen maximální limit půjčky.");
 
-    loanState.principal = round2(amount);
-    loanState.totalDue = round2(amount * 1.05);
-    loanState.remainingBalance = loanState.totalDue;
-    loanState.monthlyPayment = round2(loanState.totalDue / 60);
-    loanState.remainingInstallments = 60;
+    const baseRate = getBaseInterestRate();
+    const riskPremium = getLoanRiskPremium(amount);
+    const annualRate = getLoanOfferRate(selectedLoanType, amount);
+    const monthlyPayment = calculateMonthlyPayment(amount, annualRate, 60);
+
+    loanState = {
+        ...createEmptyLoanState(),
+        principal: round2(amount),
+        remainingPrincipal: round2(amount),
+        totalDue: round2(monthlyPayment * 60),
+        remainingBalance: round2(amount),
+        monthlyPayment,
+        remainingInstallments: 60,
+        termMonths: 60,
+        rateType: selectedLoanType,
+        annualRate,
+        baseRateAtStart: baseRate,
+        riskPremium,
+        legacyFlat: false
+    };
 
     balance = round2(balance + loanState.principal);
-    addTransaction("Přijatá půjčka", loanState.principal);
+    addTransaction(`Přijatá půjčka · ${selectedLoanType === "fixed" ? "fixní" : "pohyblivá"} sazba`, loanState.principal);
+    showGameToast(
+        "🏦 Půjčka byla načerpána",
+        `${annualRate.toFixed(2)} % p.a. · splátka ${formatCurrencyInt(monthlyPayment)}. ${selectedLoanType === "fixed" ? "Sazba zůstane stejná." : "Sazba se bude měnit s ekonomikou."}`,
+        "lesson"
+    );
     selectedLoanAmount = 0;
     renderLoansPage();
     updateAccount();
 }
 
 function repayLoan() {
+    loanState = normalizeLoanState(loanState);
     if (loanState.remainingInstallments <= 0) return alert("Nemáš aktivní půjčku.");
     const amountToRepay = calculateOutstandingDebt();
     if (balance < amountToRepay) return alert("Na splacení půjčky nemáš dostatek volných prostředků.");
 
     balance = round2(balance - amountToRepay);
     addTransaction("Předčasné splacení půjčky", -amountToRepay);
-    loanState = {
-        principal: 0,
-        totalDue: 0,
-        remainingBalance: 0,
-        monthlyPayment: 0,
-        remainingInstallments: 0
-    };
+    loanState = createEmptyLoanState();
     selectedLoanAmount = 0;
+    showGameToast("✅ Dluh předčasně splacen", "Ušetřil jsi budoucí úroky, ale snížil svoji hotovostní rezervu.", "positive");
     renderLoansPage();
     updateAccount();
+}
+
+function refinanceLoan() {
+    loanState = normalizeLoanState(loanState);
+    if (loanState.remainingInstallments <= 0) return alert("Nemáš aktivní půjčku k refinancování.");
+
+    const remainingPrincipal = calculateOutstandingDebt();
+    const previousRate = loanState.annualRate;
+    const newBaseRate = getBaseInterestRate();
+    const newRiskPremium = getLoanRiskPremium(remainingPrincipal);
+    const newRate = round2(newBaseRate + newRiskPremium + (selectedLoanType === "fixed" ? 0.75 : 0));
+    const fee = round2(Math.max(500, remainingPrincipal * 0.01));
+
+    if (loanState.rateType === selectedLoanType && Math.abs(newRate - loanState.annualRate) < 0.1 && !loanState.legacyFlat) {
+        return alert("Nová nabídka se od současné sazby téměř neliší.");
+    }
+    if (balance < fee) return alert(`Na poplatek za refinancování potřebuješ ${formatCurrencyInt(fee)}.`);
+    if (!confirm(`Refinancovat za poplatek ${formatCurrencyInt(fee)} na sazbu ${newRate.toFixed(2)} %?`)) return;
+
+    balance = round2(balance - fee);
+    addTransaction("Poplatek za refinancování", -fee);
+    loanState = {
+        ...loanState,
+        remainingPrincipal,
+        remainingBalance: remainingPrincipal,
+        totalDue: round2(calculateMonthlyPayment(remainingPrincipal, newRate, loanState.remainingInstallments) * loanState.remainingInstallments),
+        monthlyPayment: calculateMonthlyPayment(remainingPrincipal, newRate, loanState.remainingInstallments),
+        rateType: selectedLoanType,
+        annualRate: newRate,
+        baseRateAtStart: newBaseRate,
+        riskPremium: newRiskPremium,
+        legacyFlat: false,
+        lastInterestCharge: 0
+    };
+
+    showGameToast(
+        "🔄 Půjčka refinancována",
+        `Nová ${selectedLoanType === "fixed" ? "fixní" : "pohyblivá"} sazba je ${newRate.toFixed(2)} % a splátka ${formatCurrencyInt(loanState.monthlyPayment)}.`,
+        newRate < previousRate ? "positive" : "lesson"
+    );
+    renderLoansPage();
+    updateAccount();
+    saveGameState();
+}
+
+function selectLoanRateType(type) {
+    if (!["fixed", "variable"].includes(type)) return;
+    selectedLoanType = type;
+    renderLoansPage();
 }
 
 function selectLoanOffer(percent) {
@@ -2024,49 +2196,78 @@ function renderLoansPage() {
     const maxEl = document.getElementById("loanMaxValue");
     const infoEl = document.getElementById("loanInfo");
     const presetEl = document.getElementById("loanPresetButtons");
+    const baseRateEl = document.getElementById("baseRateValue");
+    const offerRateEl = document.getElementById("loanOfferRate");
+    const summaryEl = document.getElementById("loanOfferSummary");
+    const lessonEl = document.getElementById("loanRateTypeDescription");
     if (!maxEl || !infoEl || !presetEl) return;
 
+    loanState = normalizeLoanState(loanState);
     const maxLoan = calculateLoanLimit();
+    const referenceAmount = loanState.remainingInstallments > 0
+        ? calculateOutstandingDebt()
+        : Math.max(selectedLoanAmount, maxLoan * 0.10);
+    const baseRate = getBaseInterestRate();
+    const offerRate = getLoanOfferRate(selectedLoanType, referenceAmount);
     const options = [
         { key: "25", percent: 0.25 },
         { key: "10", percent: 0.10 },
         { key: "1", percent: 0.01 }
-    ].map(o => ({
-        ...o,
-        amount: roundDownToHundreds(maxLoan * o.percent)
+    ].map(option => ({
+        ...option,
+        amount: roundDownToHundreds(maxLoan * option.percent)
     }));
 
     if (selectedLoanAmount > maxLoan || selectedLoanAmount < 0) selectedLoanAmount = 0;
     maxEl.innerHTML = formatCurrencyInt(maxLoan);
-    presetEl.innerHTML = "";
+    if (baseRateEl) baseRateEl.textContent = `${baseRate.toFixed(2)} %`;
+    if (offerRateEl) offerRateEl.textContent = `${offerRate.toFixed(2)} %`;
+    if (summaryEl) summaryEl.textContent = `${selectedLoanType === "fixed" ? "Fixní" : "Pohyblivá"} sazba · 60 měsíčních splátek`;
+    if (lessonEl) lessonEl.textContent = selectedLoanType === "fixed"
+        ? "Fixace stojí přirážku 0,75 p. b., ale chrání splátku před růstem sazeb."
+        : "Pohyblivá sazba nemá fixační přirážku, každý měsíc se však přepočítá podle ekonomiky.";
+    document.getElementById("fixedRateButton")?.classList.toggle("active", selectedLoanType === "fixed");
+    document.getElementById("variableRateButton")?.classList.toggle("active", selectedLoanType === "variable");
 
-    options.forEach(opt => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.classList.add("loan-option");
-        const installment = round2((opt.amount * 1.05) / 60);
-        btn.innerHTML = `
-            <div class="loan-option-amount">${formatCurrencyInt(opt.amount)}</div>
-            <div class="loan-option-installment">Splátka: ${formatCurrencyInt(installment)} / měsíc</div>
+    presetEl.innerHTML = "";
+    options.forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.classList.add("loan-option");
+        const rate = getLoanOfferRate(selectedLoanType, option.amount);
+        const installment = calculateMonthlyPayment(option.amount, rate, 60);
+        button.innerHTML = `
+            <div class="loan-option-amount">${formatCurrencyInt(option.amount)}</div>
+            <div class="loan-option-installment">${rate.toFixed(2)} % · ${formatCurrencyInt(installment)} / měsíc</div>
         `;
-        btn.disabled = opt.amount <= 0 || loanState.remainingInstallments > 0;
-        if (opt.amount === selectedLoanAmount && opt.amount > 0) btn.classList.add("active");
-        btn.onclick = () => selectLoanOffer(opt.percent);
-        presetEl.appendChild(btn);
+        button.disabled = option.amount <= 0 || loanState.remainingInstallments > 0;
+        if (option.amount === selectedLoanAmount && option.amount > 0) button.classList.add("active");
+        button.onclick = () => selectLoanOffer(option.percent);
+        presetEl.appendChild(button);
     });
 
     if (loanState.remainingInstallments > 0) {
-        const remainingToPay = calculateOutstandingDebt();
+        const remainingPrincipal = calculateOutstandingDebt();
+        const projectedPayments = round2(loanState.monthlyPayment * loanState.remainingInstallments);
+        const typeLabel = loanState.rateType === "variable" ? "Pohyblivá" : "Fixní";
         infoEl.innerHTML = `
             <p>Aktivní půjčka: <strong>${formatCurrencyInt(loanState.principal)}</strong></p>
-            <p>Celkem k úhradě: <strong>${formatCurrencyInt(loanState.totalDue)}</strong></p>
+            <p>Typ sazby: <strong>${typeLabel}</strong></p>
+            <p>Aktuální sazba: <strong class="rate-change">${loanState.annualRate.toFixed(2)} % p.a.</strong></p>
             <p>Měsíční splátka: <strong>${formatCurrencyInt(loanState.monthlyPayment)}</strong></p>
+            <p>Z toho poslední úrok: <strong>${formatCurrencyInt(loanState.lastInterestCharge)}</strong></p>
             <p>Zbývá splátek: <strong>${loanState.remainingInstallments}</strong></p>
-            <p>Zbývá doplatit: <strong>${formatCurrencyInt(remainingToPay)}</strong></p>
+            <p>Zbývající jistina: <strong>${formatCurrencyInt(remainingPrincipal)}</strong></p>
+            <p>Odhad zbývajících plateb: <strong>${formatCurrencyInt(projectedPayments)}</strong></p>
+            ${loanState.legacyFlat ? "<p><em>Starší půjčka: původní splátka zůstala zachována. Refinancováním přejdeš na nový model.</em></p>" : ""}
         `;
     } else {
+        const selectedRate = selectedLoanAmount > 0 ? getLoanOfferRate(selectedLoanType, selectedLoanAmount) : offerRate;
+        const selectedPayment = selectedLoanAmount > 0
+            ? calculateMonthlyPayment(selectedLoanAmount, selectedRate, 60)
+            : 0;
         infoEl.innerHTML = selectedLoanAmount > 0
-            ? `<p>Vybraná částka půjčky: <strong>${formatCurrencyInt(selectedLoanAmount)}</strong></p>`
+            ? `<p>Vybraná částka: <strong>${formatCurrencyInt(selectedLoanAmount)}</strong></p><p>Sazba: <strong>${selectedRate.toFixed(2)} %</strong></p><p>Splátka: <strong>${formatCurrencyInt(selectedPayment)}</strong></p>`
             : "<p>Momentálně nemáš aktivní půjčku.</p>";
     }
 }
@@ -2075,20 +2276,38 @@ function applyAutomaticOverdraftLoan() {
     if (balance >= 0) return;
 
     const needed = round2(Math.abs(balance));
-    const addedTotalDue = round2(needed * 1.10);
+    loanState = normalizeLoanState(loanState);
     const installments = loanState.remainingInstallments > 0 ? loanState.remainingInstallments : 60;
+    const previousPrincipal = calculateOutstandingDebt();
+    const newPrincipal = round2(previousPrincipal + needed);
 
-    loanState.principal = round2(loanState.principal + needed);
-    loanState.totalDue = round2(loanState.totalDue + addedTotalDue);
-    loanState.remainingBalance = round2(
-        (loanState.remainingBalance ?? calculateOutstandingDebt()) + addedTotalDue
-    );
-    loanState.remainingInstallments = installments;
-    loanState.monthlyPayment = round2(loanState.remainingBalance / loanState.remainingInstallments);
+    if (loanState.remainingInstallments <= 0) {
+        loanState = {
+            ...createEmptyLoanState(),
+            principal: needed,
+            remainingInstallments: installments,
+            termMonths: installments
+        };
+    } else {
+        loanState.principal = round2(loanState.principal + needed);
+    }
+    loanState.remainingPrincipal = newPrincipal;
+    loanState.remainingBalance = newPrincipal;
+    loanState.rateType = "variable";
+    loanState.riskPremium = Math.max(6, Number(loanState.riskPremium) || 0);
+    loanState.baseRateAtStart = getBaseInterestRate();
+    loanState.annualRate = round2(getBaseInterestRate() + loanState.riskPremium);
+    loanState.legacyFlat = false;
+    loanState.monthlyPayment = calculateMonthlyPayment(newPrincipal, loanState.annualRate, installments);
+    loanState.totalDue = round2(loanState.monthlyPayment * installments);
 
     balance = 0;
-    addTransaction("Automatická půjčka", needed, { affectMonthly: false });
-    alert(`Volné prostředky šly do mínusu. Byla automaticky poskytnuta půjčka ${needed.toFixed(2)} 🪙 s úrokem 10 %.`);
+    addTransaction("Automatická překlenovací půjčka", needed, { affectMonthly: false });
+    showGameToast(
+        "⚠️ Automatická půjčka",
+        `Hotovost klesla pod nulu. Banka doplnila ${formatCurrencyInt(needed)} se sazbou ${loanState.annualRate.toFixed(2)} %.`,
+        "negative"
+    );
     renderLoansPage();
 }
 
@@ -2114,9 +2333,10 @@ function renderRealEstatePage() {
         const grossYield = item.value > 0 ? (item.monthlyRent * 12 / item.value) * 100 : 0;
         const netYield = item.value > 0 ? (netMonthlyCashflow * 12 / item.value) * 100 : 0;
         const paybackYears = netMonthlyCashflow > 0 ? item.value / (netMonthlyCashflow * 12) : null;
-        const canBuy = item.value > 0 && balance >= item.value;
+        const purchasePrice = getRealEstatePurchasePrice(item);
+        const canBuy = purchasePrice > 0 && balance >= purchasePrice;
         const canSell = item.owned > 0;
-        const missingFunds = Math.max(0, item.value - balance);
+        const missingFunds = Math.max(0, purchasePrice - balance);
         const ownershipLabel = item.owned > 0 ? `Vlastním ${item.owned}×` : "Zatím nevlastním";
         const availabilityLabel = canBuy
             ? "Připraveno k nákupu"
@@ -3419,7 +3639,7 @@ function parseImportedData(text, options = {}) {
     monthTick = 0;
     elapsedMonths = 0;
     economyState = createDefaultEconomyState();
-    loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    loanState = createEmptyLoanState();
     window.closedTrades = [];
     let hasAssetStates = false;
 
@@ -3638,22 +3858,9 @@ function parseImportedData(text, options = {}) {
     if (secLoan) {
         try {
             const parsedLoan = JSON.parse(secLoan.split("\n")[0]);
-            if (parsedLoan && typeof parsedLoan === "object") {
-                const remainingInstallments = Number(parsedLoan.remainingInstallments ?? 0);
-                const monthlyPayment = round2(parsedLoan.monthlyPayment ?? 0);
-                loanState = {
-                    principal: round2(parsedLoan.principal ?? 0),
-                    totalDue: round2(parsedLoan.totalDue ?? 0),
-                    remainingBalance: round2(
-                        parsedLoan.remainingBalance ??
-                        (remainingInstallments * monthlyPayment)
-                    ),
-                    monthlyPayment,
-                    remainingInstallments
-                };
-            }
+            loanState = normalizeLoanState(parsedLoan);
         } catch {
-            // keep defaults
+            loanState = createEmptyLoanState();
         }
     }
 
@@ -3749,6 +3956,7 @@ function parseImportedData(text, options = {}) {
     renderGameTime();
     updateLeverageLesson();
     economyState = normalizeEconomyState(importedWorld || economyState);
+    selectedLoanType = loanState.remainingInstallments > 0 ? loanState.rateType : "fixed";
     renderWorldPanel();
     if ([0, 200, 500, 1000].includes(importedSpeed)) setSpeed(importedSpeed);
 
@@ -3829,8 +4037,9 @@ function newGame() {
     milestonesState = { firstTarget: 10000, firstReached: false };
     challengeState = createDefaultChallengeState();
     monthlyCashflow = { income: 0, expenses: 0 };
-    loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    loanState = createEmptyLoanState();
     selectedLoanAmount = 0;
+    selectedLoanType = "fixed";
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "images/business/e-shop.webp", value: 200000, owned: 0 },
