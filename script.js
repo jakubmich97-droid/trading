@@ -132,6 +132,37 @@ Object.values(assets).forEach(a => {
     a.price = a.candles[a.candles.length - 1].c;
 });
 
+const REAL_ESTATE_PROFILES = {
+    small_apartment: {
+        tier: "START",
+        category: "Byt • stabilní poptávka",
+        risk: "Nízké riziko",
+        riskKey: "low",
+        occupancy: 97
+    },
+    medium_apartment: {
+        tier: "RŮST",
+        category: "Byt • vyšší kapitál",
+        risk: "Nízké riziko",
+        riskKey: "low",
+        occupancy: 96
+    },
+    commercial: {
+        tier: "EXPERT",
+        category: "Komerce • vyšší kolísání",
+        risk: "Vyšší riziko",
+        riskKey: "high",
+        occupancy: 88
+    },
+    house: {
+        tier: "POKROČILÉ",
+        category: "Dům • dlouhodobý pronájem",
+        risk: "Střední riziko",
+        riskKey: "medium",
+        occupancy: 93
+    }
+};
+
 function createDefaultRealEstates() {
     return {
         small_apartment: {
@@ -1398,19 +1429,92 @@ function renderRealEstatePage() {
     if (!grid) return;
     grid.innerHTML = "";
 
+    const formatPercent = value => `${Number(value).toLocaleString("cs-CZ", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    })} %`;
+
     Object.entries(realEstates).forEach(([key, item]) => {
-        const card = document.createElement("div");
-        card.className = "realestate-card";
+        const profile = REAL_ESTATE_PROFILES[key] || {
+            tier: "INVESTICE",
+            category: "Nemovitost",
+            risk: "Neznámé riziko",
+            riskKey: "medium",
+            occupancy: 90
+        };
+        const netMonthlyCashflow = round2(item.monthlyRent - item.maintenance);
+        const grossYield = item.value > 0 ? (item.monthlyRent * 12 / item.value) * 100 : 0;
+        const netYield = item.value > 0 ? (netMonthlyCashflow * 12 / item.value) * 100 : 0;
+        const paybackYears = netMonthlyCashflow > 0 ? item.value / (netMonthlyCashflow * 12) : null;
+        const canBuy = item.value > 0 && balance >= item.value;
+        const canSell = item.owned > 0;
+        const missingFunds = Math.max(0, item.value - balance);
+        const ownershipLabel = item.owned > 0 ? `Vlastním ${item.owned}×` : "Zatím nevlastním";
+        const availabilityLabel = canBuy
+            ? "Připraveno k nákupu"
+            : `K nákupu chybí ${formatCurrencyInt(missingFunds)}`;
+
+        const card = document.createElement("article");
+        card.className = `realestate-card property-card risk-${profile.riskKey}`;
         card.innerHTML = `
-            <img src="${item.image || "images/real-estate/family-house.webp"}" alt="${item.name}" class="entity-image" loading="lazy" decoding="async">
-            <h3>${item.name}</h3>
-            <p>Aktuální hodnota: <strong>${formatCurrencyInt(item.value)}</strong></p>
-            <p>Vlastním: <strong>${item.owned}</strong></p>
-            <p>Měsíční nájem: <strong>${formatCurrencyInt(item.monthlyRent)}</strong></p>
-            <p>Údržba: <strong>${formatCurrencyInt(item.maintenance)}</strong></p>
-            <div class="toolbar">
-                <button class="buy-btn" onclick="buyRealEstate('${key}')">Koupit</button>
-                <button class="sell-btn" onclick="sellRealEstate('${key}')">Prodat</button>
+            <div class="property-media">
+                <img src="${item.image || "images/real-estate/family-house.webp"}" alt="${item.name}" class="entity-image" loading="lazy" decoding="async">
+                <div class="property-badges">
+                    <span class="property-tier">${profile.tier}</span>
+                    <span class="property-risk risk-${profile.riskKey}"><i></i>${profile.risk}</span>
+                </div>
+            </div>
+
+            <div class="property-content">
+                <div class="property-heading">
+                    <div>
+                        <span class="property-kicker">${profile.category}</span>
+                        <h3>${item.name}</h3>
+                    </div>
+                    <div class="property-price">
+                        <span>Aktuální cena</span>
+                        <strong>${formatCurrencyInt(item.value)}</strong>
+                    </div>
+                </div>
+
+                <div class="property-metrics">
+                    <div class="property-metric primary">
+                        <span>Čisté cashflow</span>
+                        <strong>${formatCurrencyInt(netMonthlyCashflow)} <small>/ měsíc</small></strong>
+                    </div>
+                    <div class="property-metric">
+                        <span>Hrubý výnos</span>
+                        <strong>${formatPercent(grossYield)}</strong>
+                    </div>
+                    <div class="property-metric">
+                        <span>Čistý výnos</span>
+                        <strong>${formatPercent(netYield)}</strong>
+                    </div>
+                    <div class="property-metric">
+                        <span>Obsazenost</span>
+                        <strong>${profile.occupancy} %</strong>
+                    </div>
+                    <div class="property-metric">
+                        <span>Návratnost</span>
+                        <strong>${paybackYears ? `${paybackYears.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} let` : "—"}</strong>
+                    </div>
+                </div>
+
+                <div class="property-breakdown">
+                    <div><span>Měsíční nájem</span><strong>${formatCurrencyInt(item.monthlyRent)}</strong></div>
+                    <div><span>Údržba</span><strong>− ${formatCurrencyInt(item.maintenance)}</strong></div>
+                    <div><span>Portfolio</span><strong>${ownershipLabel}</strong></div>
+                </div>
+
+                <div class="property-availability ${canBuy ? "available" : "locked"}">
+                    <span class="availability-dot"></span>
+                    <span>${availabilityLabel}</span>
+                </div>
+
+                <div class="toolbar property-actions">
+                    <button class="buy-btn" onclick="buyRealEstate('${key}')" ${canBuy ? "" : "disabled"}>Koupit za ${formatCurrencyInt(item.value)}</button>
+                    <button class="sell-btn" onclick="sellRealEstate('${key}')" ${canSell ? "" : "disabled"}>Prodat</button>
+                </div>
             </div>
         `;
         grid.appendChild(card);
