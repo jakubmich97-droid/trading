@@ -19,6 +19,8 @@ window.addEventListener("load", () => {
         renderLoansPage();
         renderGameTime();
         updateAccount();
+        updateLeverageLesson();
+        calculateCost();
         drawChart();
     }
 });
@@ -42,10 +44,11 @@ let displaySettings = {
 
 const SPREAD = 0.02;
 const COMMISSION = 0;
-const LEVERAGE = 1;
+const DEFAULT_LEVERAGE = 1;
+const MAX_LEVERAGE = 5;
 const STORAGE_KEY = "tradingGameState";
 const AUTOSAVE_INTERVAL = 10000;
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 const TRANSACTION_HISTORY_LIMIT = 1000;
 const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
@@ -301,6 +304,16 @@ function getAssetPrice(assetKey) {
 
 function round2(value) {
     return Math.round(Number(value) * 100) / 100;
+}
+
+function getTradeLeverage(trade) {
+    const leverage = Number(trade?.leverage);
+    return leverage === MAX_LEVERAGE ? MAX_LEVERAGE : DEFAULT_LEVERAGE;
+}
+
+function formatLeverage(trade) {
+    const leverage = getTradeLeverage(trade);
+    return leverage === DEFAULT_LEVERAGE ? "1×" : `1:${leverage}`;
 }
 
 function formatCurrencyInt(value) {
@@ -760,6 +773,9 @@ function openTrade(type) {
     const tp = tpValue === "" ? null : Number(tpValue);
     let volume = parseFloat(document.getElementById("volume").value);
     const buyPercent = parseFloat(document.getElementById("buyPercent").value);
+    const leverage = Number(document.getElementById("leverage")?.value) === MAX_LEVERAGE
+        ? MAX_LEVERAGE
+        : DEFAULT_LEVERAGE;
 
     const entry = round2(type === "BUY" ? price + SPREAD : price - SPREAD);
 
@@ -784,13 +800,13 @@ function openTrade(type) {
 
     if (buyPercent && buyPercent > 0) {
         const pct = Math.min(Math.max(buyPercent, 0), 100);
-        volume = round2((balance * (pct / 100)) / entry);
+        volume = round2((balance * (pct / 100) * leverage) / entry);
         document.getElementById("volume").value = volume;
     }
 
     if (!volume || volume <= 0) return alert("Neplatný objem.");
 
-    const margin = round2(entry * volume / LEVERAGE);
+    const margin = round2(entry * volume / leverage);
     if (margin > balance) return alert("Nedostatek volných prostředků.");
 
     const trade = {
@@ -801,13 +817,14 @@ function openTrade(type) {
         sl,
         tp,
         volume,
+        leverage,
         margin,
         trailing: null
     };
 
     balance -= margin;
     balance -= COMMISSION;
-    addTransaction(`Nákup pozice (${assets[currentAsset].name})`, -(margin + COMMISSION));
+    addTransaction(`Otevřena pozice (${assets[currentAsset].name}, ${formatLeverage(trade)})`, -(margin + COMMISSION));
     trades.push(trade);
 
     addTradeMarker(type);
@@ -832,7 +849,7 @@ function calculateUnrealized() {
 }
 
 function calculateInvestedCapital() {
-    return trades.reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0);
+    return trades.reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / getTradeLeverage(t))), 0);
 }
 
 function calculateRealEstateValue() {
@@ -969,6 +986,12 @@ function checkAllTrades() {
         const assetPrice = getAssetPrice(trade.asset || currentAsset);
         updateTrailing(trade);
 
+        const margin = trade.margin ?? (trade.entry * trade.volume / getTradeLeverage(trade));
+        if (calculatePnL(trade) <= -margin) {
+            closeTrade(trade.id, "Margin call");
+            return;
+        }
+
         if (trade.type === "BUY") {
             if (Number.isFinite(trade.sl) && assetPrice <= trade.sl) closeTrade(trade.id, "SL hit");
             if (Number.isFinite(trade.tp) && assetPrice >= trade.tp) closeTrade(trade.id, "TP hit");
@@ -990,7 +1013,7 @@ function closeTrade(id, reason = "Manuální uzavření") {
     if (!trade) return;
 
     const pnl = calculatePnL(trade);
-    const margin = trade.margin ?? (trade.entry * trade.volume / LEVERAGE);
+    const margin = trade.margin ?? (trade.entry * trade.volume / getTradeLeverage(trade));
     const settlement = round2(margin + pnl);
     balance += settlement;
     addTransaction(`Uzavření pozice (${assets[trade.asset || "growth"]?.name || trade.asset})`, settlement);
@@ -1004,7 +1027,8 @@ window.closedTrades.push({
     entry: trade.entry,
     exitPrice: getAssetPrice(trade.asset || currentAsset),
     volume: trade.volume,
-    margin: trade.margin ?? (trade.entry * trade.volume / LEVERAGE),
+    leverage: getTradeLeverage(trade),
+    margin: trade.margin ?? (trade.entry * trade.volume / getTradeLeverage(trade)),
     pnl,
     reason
 });
@@ -1038,7 +1062,7 @@ function renderTrades() {
 
         div.innerHTML = `
             <strong>${trade.type}</strong> (${assets[trade.asset || "growth"]?.name || trade.asset}) |
-            Entry: ${trade.entry} | SL: ${Number.isFinite(trade.sl) ? trade.sl : "—"} | TP: ${Number.isFinite(trade.tp) ? trade.tp : "—"} |
+            Entry: ${trade.entry} | Páka: ${formatLeverage(trade)} | SL: ${Number.isFinite(trade.sl) ? trade.sl : "—"} | TP: ${Number.isFinite(trade.tp) ? trade.tp : "—"} |
             P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
             <button onclick="closeTrade(${trade.id})">Zavřít</button>
         `;
@@ -1070,7 +1094,7 @@ function renderGlobalOpenPositions() {
         row.className = "trade-row";
         row.innerHTML = `
             <strong>${assets[trade.asset || "growth"]?.name || trade.asset}</strong> |
-            ${trade.type} | Entry: ${trade.entry} |
+            ${trade.type} | Entry: ${trade.entry} | Páka: ${formatLeverage(trade)} |
             P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
             <button onclick="closeTrade(${trade.id})">Zavřít</button>
         `;
@@ -2036,7 +2060,7 @@ function drawPortfolioChart() {
             .reduce(
                 (sum, t) =>
                     sum +
-                    (t.margin ?? (t.entry * t.volume / LEVERAGE)) +
+                    (t.margin ?? (t.entry * t.volume / getTradeLeverage(t))) +
                     calculatePnL(t),
                 0
             )
@@ -2182,21 +2206,55 @@ function updateAccount() {
       COST CALCULATION
 --------------------------------------------------- */
 
+function updateLeverageLesson() {
+    const leverage = Number(document.getElementById("leverage")?.value) === MAX_LEVERAGE
+        ? MAX_LEVERAGE
+        : DEFAULT_LEVERAGE;
+    const title = document.getElementById("leverageLessonTitle");
+    const text = document.getElementById("leverageLessonText");
+    const ruleTitle = document.getElementById("leverageRuleTitle");
+    const ruleText = document.getElementById("leverageRuleText");
+    const lesson = document.querySelector(".risk-lesson");
+
+    if (leverage === MAX_LEVERAGE) {
+        if (title) title.innerText = "Páka násobí zisk i ztrátu";
+        if (text) text.innerText = "S pákou 1:5 ovládáš pětkrát větší pozici. Pohyb ceny o 1 % znamená přibližně 5% změnu vložené marže.";
+        if (ruleTitle) ruleTitle.innerText = "Riziko margin callu";
+        if (ruleText) ruleText.innerText = "Když ztráta spotřebuje celou marži, hra pozici automaticky uzavře.";
+        lesson?.classList.add("leverage-active");
+    } else {
+        if (title) title.innerText = "Neinvestuj vše do jedné sázky";
+        if (text) text.innerText = "Bez páky odpovídá expozice vložené částce. Stop Loss může dále omezit možnou ztrátu.";
+        if (ruleTitle) ruleTitle.innerText = "Pravidlo hry";
+        if (ruleText) ruleText.innerText = "Nejdřív chraň kapitál, potom hledej výnos.";
+        lesson?.classList.remove("leverage-active");
+    }
+}
+
 function calculateCost() {
     const volume = parseFloat(document.getElementById("volume").value);
     const buyPercent = parseFloat(document.getElementById("buyPercent").value);
+    const leverage = Number(document.getElementById("leverage")?.value) === MAX_LEVERAGE
+        ? MAX_LEVERAGE
+        : DEFAULT_LEVERAGE;
 
-    let cost = 0;
+    let margin = 0;
+    let exposure = 0;
     if (buyPercent && buyPercent > 0) {
         const pct = Math.min(Math.max(buyPercent, 0), 100);
-        cost = balance * (pct / 100);
+        margin = balance * (pct / 100);
+        exposure = margin * leverage;
     } else if (volume && volume > 0) {
-        cost = price * volume;
+        exposure = price * volume;
+        margin = exposure / leverage;
     }
 
-    document.getElementById("cost").innerText = cost.toFixed(2);
+    document.getElementById("cost").innerText = formatCurrencyInt(margin);
+    const exposureEl = document.getElementById("positionExposure");
+    if (exposureEl) {
+        exposureEl.innerText = `Expozice ${formatCurrencyInt(exposure)} • ${leverage === 1 ? "bez páky" : `páka 1:${leverage}`}`;
+    }
 }
-
 
 /* ---------------------------------------------------
       SAVE
@@ -2312,7 +2370,8 @@ function buildSaveText() {
             text += `SL: ${Number.isFinite(t.sl) ? t.sl : "none"}\n`;
             text += `TP: ${Number.isFinite(t.tp) ? t.tp : "none"}\n`;
             text += `Volume: ${t.volume}\n`;
-            text += `Margin: ${t.margin ?? (t.entry * t.volume / LEVERAGE)}\n`;
+            text += `Leverage: ${getTradeLeverage(t)}\n`;
+            text += `Margin: ${t.margin ?? (t.entry * t.volume / getTradeLeverage(t))}\n`;
             text += `P/L: ${calculatePnL(t)}\n`;
             text += "-----------------------\n";
         });
@@ -2334,7 +2393,8 @@ function buildSaveText() {
                 text += `Entry: ${t.entry}\n`;
                 text += `Exit: ${t.exitPrice}\n`;
                 text += `Volume: ${t.volume}\n`;
-                text += `Margin: ${t.margin ?? (t.entry * t.volume / LEVERAGE)}\n`;
+                text += `Leverage: ${getTradeLeverage(t)}\n`;
+                text += `Margin: ${t.margin ?? (t.entry * t.volume / getTradeLeverage(t))}\n`;
                 text += `P/L: ${t.pnl}\n`;
                 text += `Reason: ${t.reason}\n`;
                 text += "-----------------------\n";
@@ -2643,9 +2703,10 @@ function parseImportedData(text, options = {}) {
                 const tpMatch = b.match(/TP:\s*([0-9.]+)/);
                 t.tp = tpMatch ? Number(tpMatch[1]) : null;
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.leverage = Number(b.match(/Leverage:\s*(1|5)/)?.[1]) || DEFAULT_LEVERAGE;
                 t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
                 t.trailing = null;
-                if (Number.isNaN(t.margin)) t.margin = t.entry * t.volume / LEVERAGE;
+                if (Number.isNaN(t.margin)) t.margin = t.entry * t.volume / getTradeLeverage(t);
 
                 if (!isNaN(t.entry)) trades.push(t);
             }
@@ -2665,8 +2726,9 @@ function parseImportedData(text, options = {}) {
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
                 t.exitPrice = Number(b.match(/Exit:\s*([0-9.]+)/)?.[1]);
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
+                t.leverage = Number(b.match(/Leverage:\s*(1|5)/)?.[1]) || DEFAULT_LEVERAGE;
                 t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
-                t.pnl = Number(b.match(/P\/L:\s*([0-9.]+)/)?.[1]);
+                t.pnl = Number(b.match(/P\/L:\s*(-?[0-9.]+)/)?.[1]);
                 t.reason = b.match(/Reason:\s*(.*)/)?.[1];
 
                 if (!isNaN(t.entry)) window.closedTrades.push(t);
@@ -2715,6 +2777,7 @@ function parseImportedData(text, options = {}) {
     renderBusinessPage();
     renderLoansPage();
     renderGameTime();
+    updateLeverageLesson();
 
     if (!silent) alert("Data byla úspěšně načtena.");
 }
@@ -2815,7 +2878,12 @@ function newGame() {
     document.getElementById("tp").value = "";
     document.getElementById("volume").value = "";
     document.getElementById("buyPercent").value = "";
+    const leverageSelect = document.getElementById("leverage");
+    if (leverageSelect) leverageSelect.value = String(DEFAULT_LEVERAGE);
     document.getElementById("cost").innerText = "0";
+    const exposureEl = document.getElementById("positionExposure");
+    if (exposureEl) exposureEl.innerText = "Expozice 0";
+    updateLeverageLesson();
     document.getElementById("trades").innerHTML = "";
     syncIndicatorCheckboxes();
     const select = document.getElementById("assetSelect");
