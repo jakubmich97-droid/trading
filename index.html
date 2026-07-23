@@ -289,14 +289,26 @@
           </div>
           <div class="lesson-strip warning"><span>⚠️</span><p><strong>Lekce:</strong> Neřeš jen výši půjčky. Sleduj celkovou cenu dluhu a jestli splátku unese tvoje cashflow.</p></div>
           <div class="card loan-console">
-            <div class="loan-overview">
-              <span>Tvůj dostupný limit</span>
-              <strong id="loanMaxValue"></strong>
-              <p>Úrok 5 % · 60 měsíčních splátek</p>
+            <div class="loan-market">
+              <div class="loan-overview">
+                <span>Tvůj dostupný limit</span>
+                <strong id="loanMaxValue"></strong>
+                <p id="loanOfferSummary">Aktuální nabídka banky · 60 měsíčních splátek</p>
+              </div>
+              <div class="rate-board">
+                <div><span>Základní sazba</span><strong id="baseRateValue">–</strong></div>
+                <div><span>Nabídka banky</span><strong id="loanOfferRate">–</strong></div>
+              </div>
             </div>
+            <div class="loan-rate-picker" aria-label="Typ úrokové sazby">
+              <button id="fixedRateButton" class="loan-rate-choice active" onclick="selectLoanRateType('fixed')"><strong>🔒 Fixní sazba</strong><span>Splátka se po celou dobu nezmění.</span></button>
+              <button id="variableRateButton" class="loan-rate-choice" onclick="selectLoanRateType('variable')"><strong>〽️ Pohyblivá sazba</strong><span>Reaguje každý měsíc na ekonomiku.</span></button>
+            </div>
+            <p class="loan-rate-lesson" id="loanRateTypeDescription"></p>
             <div id="loanPresetButtons" class="loan-options"></div>
             <div class="toolbar loan-actions">
               <button class="primary" onclick="borrowLoan()">Přijmout půjčku</button>
+              <button onclick="refinanceLoan()">Refinancovat</button>
               <button onclick="repayLoan()">Předčasně splatit</button>
             </div>
             <div id="loanInfo" class="loan-info"></div>
