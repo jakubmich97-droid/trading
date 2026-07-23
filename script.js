@@ -682,19 +682,21 @@ function drawTradeLines() {
     .forEach(t => {
         ctx.lineWidth = 1;
 
-        // SL
-        ctx.strokeStyle = "red";
-        ctx.beginPath();
-        ctx.moveTo(0, py(t.sl));
-        ctx.lineTo(canvas.width, py(t.sl));
-        ctx.stroke();
+        if (Number.isFinite(t.sl)) {
+            ctx.strokeStyle = "red";
+            ctx.beginPath();
+            ctx.moveTo(0, py(t.sl));
+            ctx.lineTo(canvas.width, py(t.sl));
+            ctx.stroke();
+        }
 
-        // TP
-        ctx.strokeStyle = "lime";
-        ctx.beginPath();
-        ctx.moveTo(0, py(t.tp));
-        ctx.lineTo(canvas.width, py(t.tp));
-        ctx.stroke();
+        if (Number.isFinite(t.tp)) {
+            ctx.strokeStyle = "lime";
+            ctx.beginPath();
+            ctx.moveTo(0, py(t.tp));
+            ctx.lineTo(canvas.width, py(t.tp));
+            ctx.stroke();
+        }
     });
 }
 
@@ -706,20 +708,32 @@ function buy() { openTrade("BUY"); }
 function sell() { openTrade("SELL"); }
 
 function openTrade(type) {
-    const sl = parseFloat(document.getElementById("sl").value);
-    const tp = parseFloat(document.getElementById("tp").value);
+    const slValue = document.getElementById("sl").value.trim();
+    const tpValue = document.getElementById("tp").value.trim();
+    const sl = slValue === "" ? null : Number(slValue);
+    const tp = tpValue === "" ? null : Number(tpValue);
     let volume = parseFloat(document.getElementById("volume").value);
     const buyPercent = parseFloat(document.getElementById("buyPercent").value);
 
     const entry = round2(type === "BUY" ? price + SPREAD : price - SPREAD);
-    if (!Number.isFinite(sl) || !Number.isFinite(tp)) {
-        return alert("Zadej platný Stop Loss i Take Profit.");
+
+    if (sl !== null && !Number.isFinite(sl)) {
+        return alert("Stop Loss musí být platné číslo, nebo může zůstat prázdný.");
     }
-    if (type === "BUY" && (sl >= entry || tp <= entry)) {
-        return alert("U BUY musí být Stop Loss pod vstupní cenou a Take Profit nad ní.");
+    if (tp !== null && !Number.isFinite(tp)) {
+        return alert("Take Profit musí být platné číslo, nebo může zůstat prázdný.");
     }
-    if (type === "SELL" && (sl <= entry || tp >= entry)) {
-        return alert("U SELL musí být Stop Loss nad vstupní cenou a Take Profit pod ní.");
+    if (type === "BUY" && sl !== null && sl >= entry) {
+        return alert("U BUY musí být Stop Loss pod vstupní cenou.");
+    }
+    if (type === "BUY" && tp !== null && tp <= entry) {
+        return alert("U BUY musí být Take Profit nad vstupní cenou.");
+    }
+    if (type === "SELL" && sl !== null && sl <= entry) {
+        return alert("U SELL musí být Stop Loss nad vstupní cenou.");
+    }
+    if (type === "SELL" && tp !== null && tp >= entry) {
+        return alert("U SELL musí být Take Profit pod vstupní cenou.");
     }
 
     if (buyPercent && buyPercent > 0) {
@@ -892,11 +906,11 @@ function updateTrailing(trade) {
     const assetPrice = getAssetPrice(trade.asset || currentAsset);
 
     if (trade.type === "BUY") {
-        let newSL = assetPrice - trade.trailing;
-        if (newSL > trade.sl) trade.sl = newSL;
+        const newSL = assetPrice - trade.trailing;
+        if (!Number.isFinite(trade.sl) || newSL > trade.sl) trade.sl = newSL;
     } else {
-        let newSL = assetPrice + trade.trailing;
-        if (newSL < trade.sl) trade.sl = newSL;
+        const newSL = assetPrice + trade.trailing;
+        if (!Number.isFinite(trade.sl) || newSL < trade.sl) trade.sl = newSL;
     }
 }
 
@@ -910,13 +924,13 @@ function checkAllTrades() {
         updateTrailing(trade);
 
         if (trade.type === "BUY") {
-            if (assetPrice <= trade.sl) closeTrade(trade.id, "SL hit");
-            if (assetPrice >= trade.tp) closeTrade(trade.id, "TP hit");
+            if (Number.isFinite(trade.sl) && assetPrice <= trade.sl) closeTrade(trade.id, "SL hit");
+            if (Number.isFinite(trade.tp) && assetPrice >= trade.tp) closeTrade(trade.id, "TP hit");
         }
 
         if (trade.type === "SELL") {
-            if (assetPrice >= trade.sl) closeTrade(trade.id, "SL hit");
-            if (assetPrice <= trade.tp) closeTrade(trade.id, "TP hit");
+            if (Number.isFinite(trade.sl) && assetPrice >= trade.sl) closeTrade(trade.id, "SL hit");
+            if (Number.isFinite(trade.tp) && assetPrice <= trade.tp) closeTrade(trade.id, "TP hit");
         }
     });
 }
@@ -978,7 +992,7 @@ function renderTrades() {
 
         div.innerHTML = `
             <strong>${trade.type}</strong> (${assets[trade.asset || "growth"]?.name || trade.asset}) |
-            Entry: ${trade.entry} | SL: ${trade.sl} | TP: ${trade.tp} |
+            Entry: ${trade.entry} | SL: ${Number.isFinite(trade.sl) ? trade.sl : "—"} | TP: ${Number.isFinite(trade.tp) ? trade.tp : "—"} |
             P/L: <span style="color:${pnl >= 0 ? 'lime' : 'red'}">${pnl}</span>
             <button onclick="closeTrade(${trade.id})">Zavřít</button>
         `;
@@ -2033,8 +2047,8 @@ function buildSaveText() {
             text += `Asset: ${t.asset || "growth"}\n`;
             text += `Type: ${t.type}\n`;
             text += `Entry: ${t.entry}\n`;
-            text += `SL: ${t.sl}\n`;
-            text += `TP: ${t.tp}\n`;
+            text += `SL: ${Number.isFinite(t.sl) ? t.sl : "none"}\n`;
+            text += `TP: ${Number.isFinite(t.tp) ? t.tp : "none"}\n`;
             text += `Volume: ${t.volume}\n`;
             text += `Margin: ${t.margin ?? (t.entry * t.volume / LEVERAGE)}\n`;
             text += `P/L: ${calculatePnL(t)}\n`;
@@ -2362,8 +2376,8 @@ function parseImportedData(text, options = {}) {
                 t.asset = b.match(/Asset:\s*(growth|dividend|growth2|dividend2)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
-                t.sl = Number(b.match(/SL:\s*([0-9.]+)/)?.[1]);
-                t.tp = Number(b.match(/TP:\s*([0-9.]+)/)?.[1]);
+                const slMatch = b.match(/SL:\s*([0-9.]+)/);\n                t.sl = slMatch ? Number(slMatch[1]) : null;
+                const tpMatch = b.match(/TP:\s*([0-9.]+)/);\n                t.tp = tpMatch ? Number(tpMatch[1]) : null;
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
                 t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
                 t.trailing = null;
