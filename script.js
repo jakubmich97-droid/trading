@@ -1,6 +1,7 @@
 /********************************************************************
- *  TRADING GAME 
-
+ *  INVEST QUEST
+ *  Hlavní cíl: zábavná naučná investiční hra pro mladé.
+ *  Hráč se učí prostřednictvím rozhodnutí, následků a dlouhodobého vývoje.
  ********************************************************************/
 window.addEventListener("load", () => {
     let saved = localStorage.getItem(STORAGE_KEY);
@@ -816,6 +817,72 @@ function calculateLoanLimit() {
     return roundDownToHundreds(Math.max(50000, assetBase * 5));
 }
 
+function renderGameHud(netWorth) {
+    const earned = Math.max(0, round2(netWorth - STARTING_CAPITAL));
+    const levelSize = 10000;
+    const level = Math.floor(earned / levelSize) + 1;
+    const levelStart = (level - 1) * levelSize;
+    const levelProgress = earned - levelStart;
+    const levelProgressPct = Math.min(100, (levelProgress / levelSize) * 100);
+    const titles = [
+        "Začínající investor",
+        "Průzkumník trhu",
+        "Tvůrce portfolia",
+        "Správce majetku",
+        "Investiční stratég",
+        "Finanční vizionář"
+    ];
+    const title = titles[Math.min(level - 1, titles.length - 1)];
+    const debt = calculateOutstandingDebt();
+    const grossAssets = Math.max(0, netWorth + debt);
+    const debtRatio = grossAssets > 0 ? debt / grossAssets : (debt > 0 ? 1 : 0);
+    const cashflowNet = round2(monthlyCashflow.income - monthlyCashflow.expenses);
+
+    const levelEl = document.getElementById("playerLevel");
+    const titleEl = document.getElementById("playerTitle");
+    const xpBar = document.getElementById("playerXpBar");
+    const xpText = document.getElementById("playerXpText");
+    const debtEl = document.getElementById("topDebt");
+    const missionEl = document.getElementById("currentMissionProgress");
+    const healthEl = document.getElementById("healthStatus");
+    const healthDot = document.getElementById("healthDot");
+    const healthHint = document.getElementById("healthHint");
+    const monthlyNetEl = document.getElementById("monthlyNet");
+
+    if (levelEl) levelEl.innerText = `LVL ${level}`;
+    if (titleEl) titleEl.innerText = title;
+    if (xpBar) xpBar.style.width = `${levelProgressPct}%`;
+    if (xpText) xpText.innerText =
+        `${formatNumberGrouped(levelProgress)} / ${formatNumberGrouped(levelSize)} XP`;
+    if (debtEl) debtEl.innerHTML = formatCurrencyInt(debt);
+    if (missionEl) {
+        missionEl.innerText =
+            `${Math.round(Math.min(100, earned / milestonesState.firstTarget * 100))} %`;
+    }
+
+    let health = "Stabilní";
+    let healthClass = "";
+    let hint = "Majetek po odečtení všech dluhů";
+
+    if (netWorth < 0 || debtRatio > 0.60) {
+        health = "Riziková";
+        healthClass = "danger";
+        hint = "Vysoký dluh ohrožuje tvoji finanční stabilitu";
+    } else if (cashflowNet < 0 || debtRatio > 0.35) {
+        health = "Napjatá";
+        healthClass = "warning";
+        hint = "Sleduj záporné cashflow a zatížení dluhem";
+    }
+
+    if (healthEl) healthEl.innerText = health;
+    if (healthDot) healthDot.className = `health-dot ${healthClass}`.trim();
+    if (healthHint) healthHint.innerText = hint;
+    if (monthlyNetEl) {
+        monthlyNetEl.classList.toggle("positive-value", cashflowNet > 0);
+        monthlyNetEl.classList.toggle("negative-value", cashflowNet < 0);
+    }
+}
+
 /* ---------------------------------------------------
       TRAILING STOP
 --------------------------------------------------- */
@@ -1516,6 +1583,46 @@ function setMainCardView(view) {
     const assetsSidebarCard = document.getElementById("assetsSidebarCard");
     const appShell = document.querySelector(".app-shell");
 
+    const pageEyebrow = document.getElementById("pageEyebrow");
+    const pageTitle = document.getElementById("pageTitle");
+    const pageSubtitle = document.getElementById("pageSubtitle");
+    const pageMeta = {
+        trading: {
+            eyebrow: "Kapitola 1 · Budování majetku",
+            title: "Tvoje finanční cesta",
+            subtitle: "Rozhoduj se chytře a vybuduj portfolio, které tě uživí."
+        },
+        realestate: {
+            eyebrow: "Kapitola 2 · Hmotný majetek",
+            title: "Svět nemovitostí",
+            subtitle: "Porovnávej cenu, nájem, růst hodnoty a pravidelné náklady."
+        },
+        business: {
+            eyebrow: "Kapitola 3 · Aktivní příjem",
+            title: "Podnikatelská čtvrť",
+            subtitle: "Buduj firmy a uč se pracovat s marží, lidmi a provozními náklady."
+        },
+        loans: {
+            eyebrow: "Kapitola 4 · Cizí kapitál",
+            title: "Banka",
+            subtitle: "Používej dluh jako nástroj, ne jako náhradu zdravého cashflow."
+        },
+        milestones: {
+            eyebrow: "Herní postup · Dlouhodobé cíle",
+            title: "Výzvy a milníky",
+            subtitle: "Postup od prvních úspor až k finanční svobodě."
+        },
+        cheats: {
+            eyebrow: "Vývojářská zóna · Testování",
+            title: "Finanční laboratoř",
+            subtitle: "Ověřuj herní scénáře bez omezení běžného postupu."
+        }
+    };
+    const meta = pageMeta[view] || pageMeta.trading;
+    if (pageEyebrow) pageEyebrow.innerText = meta.eyebrow;
+    if (pageTitle) pageTitle.innerText = meta.title;
+    if (pageSubtitle) pageSubtitle.innerText = meta.subtitle;
+
     tradingPage?.classList.toggle("hidden", view !== "trading");
     realEstatePage?.classList.toggle("hidden", view !== "realestate");
     businessPage?.classList.toggle("hidden", view !== "business");
@@ -1777,6 +1884,7 @@ function updateAccount() {
     document.getElementById("total").innerHTML = formatCurrencyInt(total);
     renderMonthlyCashflow();
     renderMilestones(earnedProfit);
+    renderGameHud(total);
 
     const last = accountHistory[accountHistory.length - 1];
     if (!last || Math.abs(last.total - total) > 0.009) {
