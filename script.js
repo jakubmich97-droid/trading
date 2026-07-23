@@ -2038,6 +2038,8 @@ function parseImportedData(text, options = {}) {
             const parsedAssets = JSON.parse(secAssetStates);
             if (parsedAssets?.growth && parsedAssets?.dividend) {
                 assets = { ...assets, ...parsedAssets };
+                if (assets.dividend) assets.dividend.dividendRate = DIVIDEND_RATE;
+                if (assets.dividend2) assets.dividend2.dividendRate = DIVIDEND_RATE;
                 hasAssetStates = true;
             }
         } catch {
@@ -2152,7 +2154,24 @@ function parseImportedData(text, options = {}) {
         try {
             const parsedRealEstate = JSON.parse(jsonLine);
             if (parsedRealEstate && typeof parsedRealEstate === "object") {
-                realEstates = parsedRealEstate;
+                const defaults = createDefaultRealEstates();
+                realEstates = Object.fromEntries(
+                    Object.entries(defaults).map(([key, defaultItem]) => {
+                        const savedItem = parsedRealEstate[key] || {};
+                        const migratedItem = { ...defaultItem, ...savedItem };
+                        if (!Number(savedItem.maintenance) || savedItem.maintenance <= 0) {
+                            migratedItem.maintenance = defaultItem.maintenance;
+                        }
+                        if (key === "house" && (!Number(savedItem.value) || savedItem.value <= 0)) {
+                            migratedItem.name = defaultItem.name;
+                            migratedItem.value = defaultItem.value;
+                            migratedItem.growthRate = defaultItem.growthRate;
+                            migratedItem.monthlyRent = defaultItem.monthlyRent;
+                            migratedItem.maintenance = defaultItem.maintenance;
+                        }
+                        return [key, migratedItem];
+                    })
+                );
             }
         } catch {
             // keep defaults
@@ -2190,7 +2209,7 @@ function parseImportedData(text, options = {}) {
                     },
                     staff: {
                         employees: Number(parsedBusiness.staff?.employees ?? 0),
-                        salaryPerEmployee: round2(parsedBusiness.staff?.salaryPerEmployee ?? 500),
+                        salaryPerEmployee: Math.max(500, round2(parsedBusiness.staff?.salaryPerEmployee ?? 500)),
                         autoInProgress: Boolean(parsedBusiness.staff?.autoInProgress)
                     }
                 };
