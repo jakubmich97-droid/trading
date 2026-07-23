@@ -2376,8 +2376,10 @@ function parseImportedData(text, options = {}) {
                 t.asset = b.match(/Asset:\s*(growth|dividend|growth2|dividend2)/)?.[1] || currentAsset;
                 t.type = b.match(/Type:\s*(BUY|SELL)/)?.[1];
                 t.entry = Number(b.match(/Entry:\s*([0-9.]+)/)?.[1]);
-                const slMatch = b.match(/SL:\s*([0-9.]+)/);\n                t.sl = slMatch ? Number(slMatch[1]) : null;
-                const tpMatch = b.match(/TP:\s*([0-9.]+)/);\n                t.tp = tpMatch ? Number(tpMatch[1]) : null;
+                const slMatch = b.match(/SL:\s*([0-9.]+)/);
+                t.sl = slMatch ? Number(slMatch[1]) : null;
+                const tpMatch = b.match(/TP:\s*([0-9.]+)/);
+                t.tp = tpMatch ? Number(tpMatch[1]) : null;
                 t.volume = Number(b.match(/Volume:\s*([0-9.]+)/)?.[1]);
                 t.margin = Number(b.match(/Margin:\s*([0-9.]+)/)?.[1]);
                 t.trailing = null;
