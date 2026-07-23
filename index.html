@@ -125,6 +125,44 @@
         </article>
       </section>
 
+      <section class="world-pulse card" aria-labelledby="worldPulseTitle">
+        <div class="world-pulse-head">
+          <div>
+            <span class="eyebrow">Živá ekonomika</span>
+            <h2 id="worldPulseTitle">Co se děje ve světě</h2>
+          </div>
+          <div class="economy-cycle" id="economyCycleBadge">
+            <span id="economyCycleIcon">🟢</span>
+            <div><small>Ekonomický cyklus</small><strong id="economyCycleName">Expanze</strong></div>
+          </div>
+        </div>
+        <div class="world-pulse-grid">
+          <article class="world-focus" id="worldActiveEvent">
+            <span class="world-focus-icon" id="worldEventIcon">📰</span>
+            <div>
+              <span class="world-kicker" id="worldEventKicker">Trhy jsou klidné</span>
+              <strong id="worldEventTitle">Čekáme na další zprávu</strong>
+              <p id="worldEventDescription">Ekonomické události budou měnit akcie, reality i podnikání.</p>
+            </div>
+          </article>
+          <article class="world-metric">
+            <span>📅 Herní kalendář</span>
+            <strong id="worldCalendar">Rok 1 · leden</strong>
+            <small id="cycleCountdown">Další fáze za 18 měsíců</small>
+          </article>
+          <article class="world-metric opportunity-metric" id="opportunityCard">
+            <span>⚡ Příležitost</span>
+            <strong id="opportunityTitle">Žádná aktivní</strong>
+            <small id="opportunityDescription">Vyplatí se držet finanční rezervu.</small>
+          </article>
+        </div>
+        <div class="world-impact-row" id="worldImpactRow"></div>
+        <div class="news-ticker">
+          <span class="news-ticker-label">POSLEDNÍ ZPRÁVY</span>
+          <div id="worldNewsFeed" class="world-news-feed"><span>Svět Invest Quest se právě probouzí…</span></div>
+        </div>
+      </section>
+
       <div id="tradingPage">
         <section class="mission-banner">
           <div class="mission-icon">🎯</div>
@@ -354,6 +392,21 @@
       </div>
     </div>
   </section>
+
+  <div class="world-decision-backdrop hidden" id="worldDecisionModal" role="dialog" aria-modal="true" aria-labelledby="worldDecisionTitle">
+    <section class="world-decision-card">
+      <div class="decision-header">
+        <span class="decision-icon" id="worldDecisionIcon">⚖️</span>
+        <div><span class="eyebrow">Rozhodnutí investora</span><h2 id="worldDecisionTitle">Přichází důležité rozhodnutí</h2></div>
+      </div>
+      <p id="worldDecisionDescription"></p>
+      <div class="decision-context" id="worldDecisionContext"></div>
+      <div class="decision-options" id="worldDecisionOptions"></div>
+      <small class="decision-hint">Čas je pozastavený. Každá volba má jiný poměr rizika a odměny.</small>
+    </section>
+  </div>
+
+  <div class="game-toast-stack" id="gameToastStack" aria-live="polite"></div>
 
   <script src="script.js"></script>
 </body>
