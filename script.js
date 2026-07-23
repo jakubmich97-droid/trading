@@ -1580,15 +1580,30 @@ function calculateLoanLimit() {
     return roundDownToHundreds(Math.max(50000, assetBase * 5));
 }
 
+function calculateLevelProgress(totalXp) {
+    let level = 1;
+    let levelSize = 10000;
+    let levelProgress = Math.max(0, Math.floor(Number(totalXp) || 0));
+
+    while (levelProgress >= levelSize) {
+        levelProgress -= levelSize;
+        level += 1;
+        levelSize *= 2;
+    }
+
+    return {
+        level,
+        levelSize,
+        levelProgress,
+        levelProgressPct: Math.min(100, (levelProgress / levelSize) * 100)
+    };
+}
+
 function renderGameHud(netWorth) {
     const financialXp = Math.floor(Math.max(0, netWorth - STARTING_CAPITAL) / FINANCIAL_XP_CURRENCY_STEP);
     const missionXp = Math.max(0, Number(challengeState?.xp) || 0);
     const earned = financialXp + missionXp;
-    const levelSize = 10000;
-    const level = Math.floor(earned / levelSize) + 1;
-    const levelStart = (level - 1) * levelSize;
-    const levelProgress = earned - levelStart;
-    const levelProgressPct = Math.min(100, (levelProgress / levelSize) * 100);
+    const { level, levelSize, levelProgress, levelProgressPct } = calculateLevelProgress(earned);
     const titles = [
         "Začínající investor",
         "Průzkumník trhu",
