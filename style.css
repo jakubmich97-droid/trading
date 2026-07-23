@@ -328,10 +328,11 @@ select {
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid rgba(56, 189, 248, 0.28);
     border-radius: 10px;
     padding: 8px 10px;
-    background: #f8fafc;
+    background: rgba(15, 23, 42, 0.72);
+    color: #dbeafe;
 }
 
 .trade-row button {
