@@ -1714,6 +1714,92 @@ input[type="number"]:focus {
 
 
 
+
+.loan-market {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(250px, 0.8fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.rate-board {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.rate-board > div {
+  display: flex;
+  min-height: 84px;
+  padding: 12px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.rate-board span {
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.rate-board strong {
+  color: var(--gold);
+  font-size: 1.08rem;
+}
+
+.loan-rate-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.loan-rate-choice {
+  min-height: 66px;
+  padding: 10px 12px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.loan-rate-choice strong {
+  color: var(--text);
+  font-size: 0.75rem;
+}
+
+.loan-rate-choice span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+
+.loan-rate-choice.active {
+  border-color: rgba(69, 224, 173, 0.4);
+  background: rgba(69, 224, 173, 0.09);
+  box-shadow: 0 0 0 1px rgba(69, 224, 173, 0.07);
+}
+
+.loan-rate-lesson {
+  min-height: 36px;
+  margin: 8px 0 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--cyan);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(67, 200, 245, 0.045);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.loan-info .rate-change {
+  color: var(--gold);
+}
+
 .world-pulse {
   margin-bottom: 16px;
   padding: 18px;
@@ -3029,5 +3115,16 @@ input[type="number"]:focus {
 
   .world-decision-card {
     padding: 18px;
+  }
+}
+
+@media (max-width: 700px) {
+  .loan-market,
+  .loan-rate-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .rate-board {
+    grid-template-columns: 1fr 1fr;
   }
 }
