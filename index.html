@@ -130,8 +130,8 @@
           <div class="mission-icon">🎯</div>
           <div class="mission-copy">
             <span class="eyebrow">Aktuální mise</span>
-            <strong>Vydělej prvních 10 000 💵</strong>
-            <p>Pozoruj trh, rozlož riziko a nenech se zlákat jedním rychlým ziskem.</p>
+            <strong id="currentMissionTitle">Otevři první obchod</strong>
+            <p id="currentMissionDescription">Vyzkoušej první rozhodnutí na Burze a sleduj jeho dopad.</p>
           </div>
           <div class="mission-progress">
             <span>Postup</span>
@@ -196,9 +196,10 @@
               <label><span>Take Profit <small>(volitelné)</small></span><input type="number" id="tp" placeholder="Bez limitu"></label>
               <label><span>Objem (lot)</span><input type="number" id="volume" placeholder="Např. 10" step="0.01" oninput="calculateCost()"></label>
               <label><span>% hotovosti</span><input type="number" id="buyPercent" placeholder="Např. 10" step="0.1" min="0" max="100" oninput="calculateCost()"></label>
+              <label class="leverage-field"><span>Finanční páka</span><select id="leverage" onchange="calculateCost(); updateLeverageLesson()"><option value="1">1× bez páky</option><option value="5">1:5 vyšší riziko</option></select></label>
             </div>
             <div class="trade-actions">
-              <div class="cost-box"><span>Hodnota pozice</span><strong id="cost">0</strong></div>
+              <div class="cost-box"><span>Potřebná marže</span><strong id="cost">0</strong><small id="positionExposure">Expozice 0</small></div>
               <button class="buy-btn" onclick="buy()"><span>↗</span> BUY</button>
               <button class="sell-btn" onclick="sell()"><span>↘</span> SELL</button>
             </div>
@@ -207,9 +208,9 @@
           <aside class="risk-lesson">
             <span class="lesson-symbol">🛡️</span>
             <span class="eyebrow">Lekce o riziku</span>
-            <h3>Neinvestuj vše do jedné sázky</h3>
-            <p>Stop Loss omezuje možnou ztrátu. Velikost pozice určuje, jak silně jeden obchod zasáhne celé portfolio.</p>
-            <div class="lesson-rule"><b>Pravidlo hry</b><span>Nejdřív chraň kapitál, potom hledej výnos.</span></div>
+            <h3 id="leverageLessonTitle">Neinvestuj vše do jedné sázky</h3>
+            <p id="leverageLessonText">Stop Loss omezuje možnou ztrátu. Velikost pozice určuje, jak silně jeden obchod zasáhne celé portfolio.</p>
+            <div class="lesson-rule"><b id="leverageRuleTitle">Pravidlo hry</b><span id="leverageRuleText">Nejdřív chraň kapitál, potom hledej výnos.</span></div>
           </aside>
         </section>
 
@@ -276,19 +277,19 @@
             <div><span class="chapter-tag">Síň úspěchů</span><h2>Výzvy a milníky</h2><p>Skutečný pokrok není jeden šťastný obchod, ale dlouhodobě silnější finanční pozice.</p></div>
             <button onclick="openTrading()">← Zpět na burzu</button>
           </div>
-          <div class="card milestone-card">
-            <div class="trophy">🏆</div>
-            <span class="eyebrow">První výzva</span>
-            <h3>Vydělej 10 000 💵</h3>
-            <p>Započítává se růst čistého jmění po odečtení dluhů.</p>
-            <div class="milestone-progress-wrap"><div id="milestoneProgressBar" class="milestone-progress-bar"></div></div>
-            <p id="milestoneProgressText">0 / 10 000 💵</p>
+          <section class="challenge-summary">
+            <article class="card challenge-summary-main">
+              <div class="trophy">🏆</div>
+              <div><span class="eyebrow">Investiční cesta</span><h3>Plň mise. Získávej XP. Odemykej další zkušenosti.</h3><p>Výzvy tě provedou Burzou, Reality i Businessem a odmění správné návyky.</p></div>
+            </article>
+            <article class="card challenge-score"><span>Dokončené výzvy</span><strong id="challengeCompletedCount">0 / 7</strong><small id="challengeClaimHint">Začni první misí na Burze.</small></article>
+            <article class="card challenge-score"><span>Bonusové zkušenosti</span><strong id="challengeXpEarned">0 XP</strong><small>XP se započítávají do úrovně hráče.</small></article>
+          </section>
+          <div class="challenge-filter" aria-label="Kategorie výzev">
+            <span>Aktivní investiční cesta</span>
+            <div><span class="challenge-category active">Vše</span><span class="challenge-category">Burza</span><span class="challenge-category">Reality</span><span class="challenge-category">Business</span></div>
           </div>
-          <div class="locked-challenges">
-            <article><span>🔒</span><strong>Stabilní rezerva</strong><small>Další kapitola</small></article>
-            <article><span>🔒</span><strong>První pasivní příjem</strong><small>Další kapitola</small></article>
-            <article><span>🔒</span><strong>Diverzifikované portfolio</strong><small>Další kapitola</small></article>
-          </div>
+          <section id="challengeGrid" class="challenge-grid"></section>
         </div>
       </section>
 
