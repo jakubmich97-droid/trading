@@ -43,8 +43,10 @@ const SPREAD = 0.02;
 const COMMISSION = 0;
 const LEVERAGE = 1;
 const STORAGE_KEY = "tradingGameState";
-const AUTOSAVE_INTERVAL = 2000;
-const DIVIDEND_RATE = 0.025;
+const AUTOSAVE_INTERVAL = 10000;
+const SAVE_VERSION = 2;
+const TRANSACTION_HISTORY_LIMIT = 1000;
+const DIVIDEND_RATE = 0.003;
 const DIVIDEND_PERIOD_TICKS = 12;
 const MAX_CANDLES = 75;
 const STARTING_CAPITAL = 10000;
@@ -138,7 +140,7 @@ function createDefaultRealEstates() {
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 10000,
             rentIncreaseBuffer: 0,
-            maintenance: 0,
+            maintenance: 2000,
             owned: 0
         },
         medium_apartment: {
@@ -148,7 +150,7 @@ function createDefaultRealEstates() {
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 15000,
             rentIncreaseBuffer: 0,
-            maintenance: 0,
+            maintenance: 3000,
             owned: 0
         },
         commercial: {
@@ -158,17 +160,17 @@ function createDefaultRealEstates() {
             growthRate: REAL_ESTATE_GROWTH_RATE,
             monthlyRent: 30000,
             rentIncreaseBuffer: 0,
-            maintenance: 0,
+            maintenance: 7000,
             owned: 0
         },
         house: {
-            name: "Dům (upřesníš později)",
+            name: "Rodinný dům",
             image: "img-house.svg",
-            value: 0,
-            growthRate: LAND_GROWTH_RATE,
-            monthlyRent: 0,
+            value: 8000000,
+            growthRate: REAL_ESTATE_GROWTH_RATE,
+            monthlyRent: 24000,
             rentIncreaseBuffer: 0,
-            maintenance: 0,
+            maintenance: 4000,
             owned: 0
         }
     };
@@ -189,6 +191,7 @@ let monthlyCashflow = {
 let loanState = {
     principal: 0,
     totalDue: 0,
+    remainingBalance: 0,
     monthlyPayment: 0,
     remainingInstallments: 0
 };
@@ -215,7 +218,7 @@ let businessState = {
     },
     staff: {
         employees: 0,
-        salaryPerEmployee: 90,
+        salaryPerEmployee: 500,
         autoInProgress: false
     }
 };
@@ -266,12 +269,16 @@ function roundDownToHundreds(value) {
 }
 
 function addTransaction(label, amount, options = {}) {
-    const { affectMonthly = true } = options;
+    const { affectMonthly = false } = options;
     transactionHistory.unshift({
         time: new Date().toLocaleString(),
         label,
-        amount: round2(amount)
+        amount: round2(amount),
+        cashflow: affectMonthly
     });
+    if (transactionHistory.length > TRANSACTION_HISTORY_LIMIT) {
+        transactionHistory.length = TRANSACTION_HISTORY_LIMIT;
+    }
     if (affectMonthly) {
         if (amount >= 0) monthlyCashflow.income = round2(monthlyCashflow.income + amount);
         else monthlyCashflow.expenses = round2(monthlyCashflow.expenses + Math.abs(amount));
@@ -385,7 +392,8 @@ function updatePrice() {
                     balance += roundedPayout;
                     addTransaction(
                         `Dividenda (${asset.name}) ${(asset.dividendRate * 100).toFixed(1)} %`,
-                        roundedPayout
+                        roundedPayout,
+                        { affectMonthly: true }
                     );
                     document.getElementById("status").innerText =
                         `Dividendy (${asset.name}): +${roundedPayout.toFixed(2)} (${(asset.dividendRate * 100).toFixed(1)} %)`;
@@ -477,7 +485,8 @@ function drawCandles() {
     let min = Math.min(...lows);
 
     function py(v) {
-        return (max - v) / (max - min) * canvas.height;
+        const range = max - min || 1;
+        return (max - v) / range * canvas.height;
     }
 
     candles.forEach((c, i) => {
@@ -543,7 +552,8 @@ function drawIndicatorLine(values, color) {
     let min = Math.min(...lows);
 
     function py(v) {
-        return (max - v) / (max - min) * canvas.height;
+        const range = max - min || 1;
+        return (max - v) / range * canvas.height;
     }
 
     ctx.strokeStyle = color;
@@ -636,7 +646,8 @@ function drawTradeMarkers() {
     let min = Math.min(...lows);
 
     function py(v) {
-        return (max - v) / (max - min) * canvas.height;
+        const range = max - min || 1;
+        return (max - v) / range * canvas.height;
     }
 
     tradeMarkers.forEach(m => {
@@ -661,7 +672,8 @@ function drawTradeLines() {
     let min = Math.min(...lows);
 
     function py(v) {
-        return (max - v) / (max - min) * canvas.height;
+        const range = max - min || 1;
+        return (max - v) / range * canvas.height;
     }
 
     trades
@@ -699,6 +711,16 @@ function openTrade(type) {
     const buyPercent = parseFloat(document.getElementById("buyPercent").value);
 
     const entry = round2(type === "BUY" ? price + SPREAD : price - SPREAD);
+    if (!Number.isFinite(sl) || !Number.isFinite(tp)) {
+        return alert("Zadej platný Stop Loss i Take Profit.");
+    }
+    if (type === "BUY" && (sl >= entry || tp <= entry)) {
+        return alert("U BUY musí být Stop Loss pod vstupní cenou a Take Profit nad ní.");
+    }
+    if (type === "SELL" && (sl <= entry || tp >= entry)) {
+        return alert("U SELL musí být Stop Loss nad vstupní cenou a Take Profit pod ní.");
+    }
+
     if (buyPercent && buyPercent > 0) {
         const pct = Math.min(Math.max(buyPercent, 0), 100);
         volume = round2((balance * (pct / 100)) / entry);
@@ -750,6 +772,48 @@ function calculateUnrealized() {
 
 function calculateInvestedCapital() {
     return trades.reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0);
+}
+
+function calculateRealEstateValue() {
+    return Object.values(realEstates).reduce(
+        (sum, item) => sum + (Number(item.value) || 0) * (Number(item.owned) || 0),
+        0
+    );
+}
+
+function calculateBusinessValue() {
+    const shopValue = (businessState.shop?.value || 0) * (businessState.shop?.owned || 0);
+    const carWashValue = (businessState.carWash?.value || 0) * (businessState.carWash?.owned || 0);
+    const goodsValue = businessState.goods?.inProgress ? (businessState.goods.buyPrice || 0) : 0;
+    return round2(shopValue + carWashValue + goodsValue);
+}
+
+function calculateOutstandingDebt() {
+    if (!loanState || loanState.remainingInstallments <= 0) return 0;
+    return round2(
+        loanState.remainingBalance ??
+        (loanState.remainingInstallments * loanState.monthlyPayment)
+    );
+}
+
+function calculateNetWorth() {
+    return round2(
+        balance +
+        calculateInvestedCapital() +
+        calculateUnrealized() +
+        calculateRealEstateValue() +
+        calculateBusinessValue() -
+        calculateOutstandingDebt()
+    );
+}
+
+function calculateLoanLimit() {
+    const assetBase =
+        balance +
+        calculateInvestedCapital() +
+        calculateRealEstateValue() +
+        calculateBusinessValue();
+    return roundDownToHundreds(Math.max(50000, assetBase * 5));
 }
 
 /* ---------------------------------------------------
@@ -936,6 +1000,7 @@ function sellRealEstate(key) {
 
 function processRealEstateMonth() {
     let rentIncome = 0;
+    let maintenanceExpense = 0;
 
     Object.values(realEstates).forEach(item => {
         item.value = round2(item.value * (1 + item.growthRate));
@@ -950,11 +1015,18 @@ function processRealEstateMonth() {
         if (item.owned > 0 && item.monthlyRent > 0) {
             rentIncome += item.owned * item.monthlyRent;
         }
+        if (item.owned > 0 && item.maintenance > 0) {
+            maintenanceExpense += item.owned * item.maintenance;
+        }
     });
 
     if (rentIncome > 0) {
         balance = round2(balance + rentIncome);
-        addTransaction("Nájemné z nemovitostí", rentIncome);
+        addTransaction("Nájemné z nemovitostí", rentIncome, { affectMonthly: true });
+    }
+    if (maintenanceExpense > 0) {
+        balance = round2(balance - maintenanceExpense);
+        addTransaction("Údržba nemovitostí", -maintenanceExpense, { affectMonthly: true });
     }
 
     if (!document.getElementById("realEstatePage")?.classList.contains("hidden")) {
@@ -1014,7 +1086,7 @@ function hireEmployee() {
     const hireCost = 10000;
     if (balance < hireCost) return alert("Nedostatek volných prostředků na nábor zaměstnance.");
     balance = round2(balance - hireCost);
-    addTransaction("Nábor zaměstnance (e-shop)", -hireCost);
+    addTransaction("Nábor zaměstnance (e-shop)", -hireCost, { affectMonthly: true });
     businessState.staff.employees += 1;
     renderBusinessPage();
     updateAccount();
@@ -1038,7 +1110,7 @@ function buyBusinessGoods() {
     balance = round2(balance - businessState.goods.buyPrice);
     businessState.goods.inProgress = true;
     businessState.goods.readyToSell = false;
-    addTransaction("Nákup zboží (e-shop)", -businessState.goods.buyPrice);
+    addTransaction("Nákup zboží (e-shop)", -businessState.goods.buyPrice, { affectMonthly: true });
     renderBusinessPage();
     updateAccount();
 }
@@ -1049,7 +1121,7 @@ function sellBusinessGoods() {
     if (!businessState.goods.readyToSell) return alert("Zboží můžeš prodat až po jednom měsíci.");
 
     balance = round2(balance + businessState.goods.sellPrice);
-    addTransaction("Prodej zboží (e-shop)", businessState.goods.sellPrice);
+    addTransaction("Prodej zboží (e-shop)", businessState.goods.sellPrice, { affectMonthly: true });
     businessState.goods.inProgress = false;
     businessState.goods.readyToSell = false;
     renderBusinessPage();
@@ -1060,26 +1132,26 @@ function processBusinessMonth() {
     if (businessState.carWash.owned > 0) {
         const washIncome = round2(businessState.carWash.owned * businessState.carWash.monthlyIncome);
         balance = round2(balance + washIncome);
-        addTransaction("Příjem: Samoobslužná myčka", washIncome);
+        addTransaction("Příjem: Samoobslužná myčka", washIncome, { affectMonthly: true });
     }
 
     if (businessState.shop.owned > 0 && businessState.staff.employees > 0) {
         const employees = businessState.staff.employees;
         const salaryTotal = round2(employees * businessState.staff.salaryPerEmployee);
         balance = round2(balance - salaryTotal);
-        addTransaction("Mzdy zaměstnanců (e-shop)", -salaryTotal);
+        addTransaction("Mzdy zaměstnanců (e-shop)", -salaryTotal, { affectMonthly: true });
 
-        const autoBuy = round2(1000 * employees);
-        const autoSell = round2(autoBuy * (1 + 0.1 * employees));
+        const autoBuy = round2(10000 * employees);
+        const autoSell = round2(autoBuy * 1.1);
 
         if (businessState.staff.autoInProgress) {
             balance = round2(balance + autoSell);
-            addTransaction("Automatický prodej zboží (e-shop)", autoSell);
+            addTransaction("Automatický prodej zboží (e-shop)", autoSell, { affectMonthly: true });
         }
 
         if (balance >= autoBuy) {
             balance = round2(balance - autoBuy);
-            addTransaction("Automatický nákup zboží (e-shop)", -autoBuy);
+            addTransaction("Automatický nákup zboží (e-shop)", -autoBuy, { affectMonthly: true });
             businessState.staff.autoInProgress = true;
         } else {
             businessState.staff.autoInProgress = false;
@@ -1097,14 +1169,22 @@ function processBusinessMonth() {
 function processLoanMonth() {
     if (!loanState.remainingInstallments || loanState.remainingInstallments <= 0) return;
 
-    balance = round2(balance - loanState.monthlyPayment);
+    const payment = round2(Math.min(
+        loanState.monthlyPayment,
+        loanState.remainingBalance ?? loanState.totalDue
+    ));
+    balance = round2(balance - payment);
+    loanState.remainingBalance = round2(
+        Math.max(0, (loanState.remainingBalance ?? loanState.totalDue) - payment)
+    );
     loanState.remainingInstallments -= 1;
-    addTransaction("Splátka půjčky", -loanState.monthlyPayment);
+    addTransaction("Splátka půjčky", -payment, { affectMonthly: true });
 
-    if (loanState.remainingInstallments <= 0) {
+    if (loanState.remainingInstallments <= 0 || loanState.remainingBalance <= 0) {
         loanState = {
             principal: 0,
             totalDue: 0,
+            remainingBalance: 0,
             monthlyPayment: 0,
             remainingInstallments: 0
         };
@@ -1116,7 +1196,7 @@ function processLoanMonth() {
 }
 
 function borrowLoan() {
-    const maxLoan = roundDownToHundreds(balance * 100);
+    const maxLoan = calculateLoanLimit();
     const amount = roundDownToHundreds(selectedLoanAmount);
     if (!amount || amount <= 0) return alert("Neplatná výše půjčky.");
     if (loanState.remainingInstallments > 0) return alert("Nejdřív doplať stávající půjčku.");
@@ -1124,6 +1204,7 @@ function borrowLoan() {
 
     loanState.principal = round2(amount);
     loanState.totalDue = round2(amount * 1.05);
+    loanState.remainingBalance = loanState.totalDue;
     loanState.monthlyPayment = round2(loanState.totalDue / 60);
     loanState.remainingInstallments = 60;
 
@@ -1136,7 +1217,7 @@ function borrowLoan() {
 
 function repayLoan() {
     if (loanState.remainingInstallments <= 0) return alert("Nemáš aktivní půjčku.");
-    const amountToRepay = round2(loanState.totalDue);
+    const amountToRepay = calculateOutstandingDebt();
     if (balance < amountToRepay) return alert("Na splacení půjčky nemáš dostatek volných prostředků.");
 
     balance = round2(balance - amountToRepay);
@@ -1144,6 +1225,7 @@ function repayLoan() {
     loanState = {
         principal: 0,
         totalDue: 0,
+        remainingBalance: 0,
         monthlyPayment: 0,
         remainingInstallments: 0
     };
@@ -1153,7 +1235,7 @@ function repayLoan() {
 }
 
 function selectLoanOffer(percent) {
-    const maxLoan = roundDownToHundreds(balance * 100);
+    const maxLoan = calculateLoanLimit();
     selectedLoanAmount = roundDownToHundreds(maxLoan * percent);
     renderLoansPage();
 }
@@ -1164,7 +1246,7 @@ function renderLoansPage() {
     const presetEl = document.getElementById("loanPresetButtons");
     if (!maxEl || !infoEl || !presetEl) return;
 
-    const maxLoan = roundDownToHundreds(balance * 100);
+    const maxLoan = calculateLoanLimit();
     const options = [
         { key: "25", percent: 0.25 },
         { key: "10", percent: 0.10 },
@@ -1194,7 +1276,7 @@ function renderLoansPage() {
     });
 
     if (loanState.remainingInstallments > 0) {
-        const remainingToPay = round2(loanState.remainingInstallments * loanState.monthlyPayment);
+        const remainingToPay = calculateOutstandingDebt();
         infoEl.innerHTML = `
             <p>Aktivní půjčka: <strong>${formatCurrencyInt(loanState.principal)}</strong></p>
             <p>Celkem k úhradě: <strong>${formatCurrencyInt(loanState.totalDue)}</strong></p>
@@ -1218,11 +1300,14 @@ function applyAutomaticOverdraftLoan() {
 
     loanState.principal = round2(loanState.principal + needed);
     loanState.totalDue = round2(loanState.totalDue + addedTotalDue);
+    loanState.remainingBalance = round2(
+        (loanState.remainingBalance ?? calculateOutstandingDebt()) + addedTotalDue
+    );
     loanState.remainingInstallments = installments;
-    loanState.monthlyPayment = round2(loanState.totalDue / loanState.remainingInstallments);
+    loanState.monthlyPayment = round2(loanState.remainingBalance / loanState.remainingInstallments);
 
     balance = 0;
-    addTransaction("Automatická půjčka", needed);
+    addTransaction("Automatická půjčka", needed, { affectMonthly: false });
     alert(`Volné prostředky šly do mínusu. Byla automaticky poskytnuta půjčka ${needed.toFixed(2)} 🪙 s úrokem 10 %.`);
     renderLoansPage();
 }
@@ -1258,8 +1343,8 @@ function renderBusinessPage() {
     const shop = businessState.shop;
     const goods = businessState.goods;
     const staff = businessState.staff;
-    const autoBuy = round2(1000 * staff.employees);
-    const autoSell = round2(autoBuy * (1 + 0.1 * staff.employees));
+    const autoBuy = round2(10000 * staff.employees);
+    const autoSell = round2(autoBuy * 1.1);
     grid.innerHTML = "";
 
     const card = document.createElement("div");
@@ -1565,7 +1650,13 @@ function drawPortfolioChart() {
         name: asset.name,
         value: trades
             .filter(t => t.asset === key)
-            .reduce((sum, t) => sum + (t.margin ?? (t.entry * t.volume / LEVERAGE)), 0)
+            .reduce(
+                (sum, t) =>
+                    sum +
+                    (t.margin ?? (t.entry * t.volume / LEVERAGE)) +
+                    calculatePnL(t),
+                0
+            )
     }));
 
     const portfolioSlices = [
@@ -1590,6 +1681,7 @@ function drawPortfolioChart() {
     const incomeMap = new Map();
     const costMap = new Map();
     transactionHistory.forEach(tx => {
+        if (!tx.cashflow) return;
         const key = tx.label || "Neznámé";
         if (tx.amount >= 0) incomeMap.set(key, (incomeMap.get(key) || 0) + tx.amount);
         else costMap.set(key, (costMap.get(key) || 0) + Math.abs(tx.amount));
@@ -1676,7 +1768,7 @@ function updateAccount() {
 
     let unreal = calculateUnrealized();
     let invested = calculateInvestedCapital();
-    let total = balance + invested + unreal;
+    let total = calculateNetWorth();
     const earnedProfit = round2(total - STARTING_CAPITAL);
 
     document.getElementById("balance").innerHTML = formatCurrencyInt(balance);
@@ -1747,6 +1839,7 @@ function buildSaveText() {
     persistCurrentAssetState();
     // Oddělené sekce do TXT
     let text = "=== TRADING GAME EXPORT ===\n";
+    text += `=== SAVE VERSION ===\nVersion: ${SAVE_VERSION}\n\n`;
     text += `Export created: ${new Date().toLocaleString()}\n\n`;
 
     /* ----------------------------------------
@@ -1879,7 +1972,11 @@ function buildSaveText() {
 }
 
 function saveGameState() {
-    localStorage.setItem(STORAGE_KEY, buildSaveText());
+    try {
+        localStorage.setItem(STORAGE_KEY, buildSaveText());
+    } catch (error) {
+        console.error("Automatické uložení selhalo:", error);
+    }
 }
 
 /* ---------------------------------------------------
@@ -1914,12 +2011,13 @@ function parseImportedData(text, options = {}) {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
         carWash: { name: "Samoobslužná myčka", image: "img-carwash.svg", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
-        staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
+        staff: { employees: 0, salaryPerEmployee: 500, autoInProgress: false }
     };
     monthTick = 0;
     elapsedMonths = 0;
-    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
     window.closedTrades = [];
+    let hasAssetStates = false;
 
     // Helper — safe section extractor
     function getSection(name) {
@@ -1940,6 +2038,7 @@ function parseImportedData(text, options = {}) {
             const parsedAssets = JSON.parse(secAssetStates);
             if (parsedAssets?.growth && parsedAssets?.dividend) {
                 assets = { ...assets, ...parsedAssets };
+                hasAssetStates = true;
             }
         } catch {
             // fallback to legacy format
@@ -2018,7 +2117,8 @@ function parseImportedData(text, options = {}) {
                 transactionHistory = parsedHistory.map(item => ({
                     time: item.time || new Date().toLocaleString(),
                     label: item.label || (item.asset ? `Dividenda (${item.asset})` : "Transakce"),
-                    amount: round2(item.amount ?? 0)
+                    amount: round2(item.amount ?? 0),
+                    cashflow: Boolean(item.cashflow)
                 }));
             }
         } catch {
@@ -2090,7 +2190,7 @@ function parseImportedData(text, options = {}) {
                     },
                     staff: {
                         employees: Number(parsedBusiness.staff?.employees ?? 0),
-                        salaryPerEmployee: round2(parsedBusiness.staff?.salaryPerEmployee ?? 90),
+                        salaryPerEmployee: round2(parsedBusiness.staff?.salaryPerEmployee ?? 500),
                         autoInProgress: Boolean(parsedBusiness.staff?.autoInProgress)
                     }
                 };
@@ -2106,11 +2206,17 @@ function parseImportedData(text, options = {}) {
         try {
             const parsedLoan = JSON.parse(secLoan.split("\n")[0]);
             if (parsedLoan && typeof parsedLoan === "object") {
+                const remainingInstallments = Number(parsedLoan.remainingInstallments ?? 0);
+                const monthlyPayment = round2(parsedLoan.monthlyPayment ?? 0);
                 loanState = {
                     principal: round2(parsedLoan.principal ?? 0),
                     totalDue: round2(parsedLoan.totalDue ?? 0),
-                    monthlyPayment: round2(parsedLoan.monthlyPayment ?? 0),
-                    remainingInstallments: Number(parsedLoan.remainingInstallments ?? 0)
+                    remainingBalance: round2(
+                        parsedLoan.remainingBalance ??
+                        (remainingInstallments * monthlyPayment)
+                    ),
+                    monthlyPayment,
+                    remainingInstallments
                 };
             }
         } catch {
@@ -2163,33 +2269,32 @@ function parseImportedData(text, options = {}) {
         });
     }
 
-    /* ----- CANDLES ----- */
-    let secCandles = getSection("LAST 75 CANDLES (OHLC)");
-    if (!secCandles) secCandles = getSection("LAST 100 CANDLES (OHLC)");
-    if (!secCandles) secCandles = getSection("LAST 50 CANDLES (OHLC)");
-    if (secCandles) {
-        let lines = secCandles.split("\n");
-        lines.forEach(line => {
-            let m = line.match(/[0-9]+\.\s*O:([0-9.]+)\s*H:([0-9.]+)\s*L:([0-9.]+)\s*C:([0-9.]+)/);
-            if (m) {
-                candles.push({
-                    o: parseFloat(m[1]),
-                    h: parseFloat(m[2]),
-                    l: parseFloat(m[3]),
-                    c: parseFloat(m[4])
-                });
-            }
-        });
+    /* ----- CANDLES: legacy saves only ----- */
+    if (!hasAssetStates) {
+        let secCandles = getSection("LAST 75 CANDLES (OHLC)");
+        if (!secCandles) secCandles = getSection("LAST 100 CANDLES (OHLC)");
+        if (!secCandles) secCandles = getSection("LAST 50 CANDLES (OHLC)");
+        if (secCandles) {
+            let lines = secCandles.split("\n");
+            lines.forEach(line => {
+                let m = line.match(/[0-9]+\.\s*O:([0-9.]+)\s*H:([0-9.]+)\s*L:([0-9.]+)\s*C:([0-9.]+)/);
+                if (m) {
+                    candles.push({
+                        o: parseFloat(m[1]),
+                        h: parseFloat(m[2]),
+                        l: parseFloat(m[3]),
+                        c: parseFloat(m[4])
+                    });
+                }
+            });
+        }
+        if (candles.length === 0) candles = generateFlatCandles(price);
+        assets[currentAsset].candles = candles;
+        assets[currentAsset].price = price;
+        assets[currentAsset].velocity = 0;
+        assets[currentAsset].tick = 0;
+        assets[currentAsset].tradeMarkers = [];
     }
-
-    if (candles.length === 0) {
-        candles = generateFlatCandles(price);
-    }
-
-    candleIndex = candles.length - 1;
-    tick = 0;
-    velocity = 0;
-    persistCurrentAssetState();
     loadAssetState(currentAsset);
 
     // Refresh displays
@@ -2277,13 +2382,14 @@ function newGame() {
     accountHistory = [];
     milestonesState = { firstTarget: 10000, firstReached: false };
     monthlyCashflow = { income: 0, expenses: 0 };
-    loanState = { principal: 0, totalDue: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
+    selectedLoanAmount = 0;
     realEstates = createDefaultRealEstates();
     businessState = {
         shop: { name: "E-shop", image: "img-eshop.svg", value: 200000, owned: 0 },
         carWash: { name: "Samoobslužná myčka", image: "img-carwash.svg", value: 1000000, monthlyIncome: 10000, owned: 0 },
         goods: { inProgress: false, readyToSell: false, buyPrice: 1000, sellPrice: 1100 },
-        staff: { employees: 0, salaryPerEmployee: 90, autoInProgress: false }
+        staff: { employees: 0, salaryPerEmployee: 500, autoInProgress: false }
     };
     monthTick = 0;
     elapsedMonths = 0;
