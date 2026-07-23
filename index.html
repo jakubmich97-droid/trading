@@ -151,12 +151,18 @@
           </div>
           <div class="control-block save-block">
             <span class="control-label">Správa hry</span>
-            <div class="toolbar">
-              <button onclick="exportData()">↓ Uložit postup</button>
-              <label class="file-control"><input type="file" id="importFile" accept=".txt"><span>Vybrat soubor</span></label>
-              <button onclick="parseImportedDataFromFile()">↑ Načíst</button>
+            <div class="toolbar save-actions">
+              <button onclick="exportData()">↓ Exportovat JSON</button>
+              <label class="file-control"><input type="file" id="importFile" accept=".json,.txt,application/json,text/plain"><span>Vybrat soubor</span></label>
+              <button onclick="parseImportedDataFromFile()">↑ Importovat</button>
               <button class="danger ghost" onclick="newGame()">Nová hra</button>
             </div>
+            <div class="save-slots" aria-label="Ruční uložené pozice">
+              <div class="save-slot"><button class="slot-load" onclick="loadFromSlot(1)"><strong>Pozice 1</strong><span id="saveSlotMeta1">Prázdná</span></button><button class="slot-save" onclick="saveToSlot(1)">Uložit</button></div>
+              <div class="save-slot"><button class="slot-load" onclick="loadFromSlot(2)"><strong>Pozice 2</strong><span id="saveSlotMeta2">Prázdná</span></button><button class="slot-save" onclick="saveToSlot(2)">Uložit</button></div>
+              <div class="save-slot"><button class="slot-load" onclick="loadFromSlot(3)"><strong>Pozice 3</strong><span id="saveSlotMeta3">Prázdná</span></button><button class="slot-save" onclick="saveToSlot(3)">Uložit</button></div>
+            </div>
+            <span class="autosave-status" id="autosaveStatus">● Automatické ukládání aktivní</span>
           </div>
         </section>
 
