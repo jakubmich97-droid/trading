@@ -57,6 +57,98 @@ const STARTING_CAPITAL = 10000;
 const REAL_ESTATE_GROWTH_RATE = 0.0003;
 const LAND_GROWTH_RATE = 0.00015;
 
+const CHALLENGE_DEFINITIONS = [
+    {
+        id: "first_trade",
+        icon: "📈",
+        category: "Burza",
+        title: "První krok na burze",
+        description: "Otevři svoji první BUY nebo SELL pozici.",
+        target: 1,
+        rewardXp: 150,
+        rewardCash: 100
+    },
+    {
+        id: "risk_manager",
+        icon: "🛡️",
+        category: "Burza",
+        title: "Řízení rizika",
+        description: "Otevři obchod se Stop Lossem nebo Take Profitem.",
+        target: 1,
+        rewardXp: 200,
+        rewardCash: 150
+    },
+    {
+        id: "leverage_lesson",
+        icon: "⚡",
+        category: "Burza",
+        title: "Síla finanční páky",
+        description: "Otevři jednu pozici s pákou 1:5 a sleduj marži.",
+        target: 1,
+        rewardXp: 250,
+        rewardCash: 200
+    },
+    {
+        id: "wealth_builder",
+        icon: "💰",
+        category: "Portfolio",
+        title: "Prvních 10 000 navíc",
+        description: "Zvyš čisté jmění o 10 000 💵 oproti startu.",
+        target: 10000,
+        rewardXp: 500,
+        rewardCash: 500
+    },
+    {
+        id: "first_business",
+        icon: "🏪",
+        category: "Business",
+        title: "První vlastní podnik",
+        description: "Kup E-shop nebo samoobslužnou myčku.",
+        target: 1,
+        rewardXp: 500,
+        rewardCash: 1000
+    },
+    {
+        id: "first_property",
+        icon: "🏠",
+        category: "Reality",
+        title: "První nemovitost",
+        description: "Pořiď první nemovitost do svého portfolia.",
+        target: 1,
+        rewardXp: 750,
+        rewardCash: 2500
+    },
+    {
+        id: "diversified",
+        icon: "🧩",
+        category: "Strategie",
+        title: "Tři světy investování",
+        description: "Investuj na Burze, v Reality i v Businessu.",
+        target: 3,
+        rewardXp: 1000,
+        rewardCash: 5000
+    }
+];
+
+function createDefaultChallengeState() {
+    return {
+        xp: 0,
+        claimed: {},
+        counters: {
+            tradesOpened: 0,
+            protectedTrades: 0,
+            leveragedTrades: 0,
+            propertiesBought: 0,
+            businessesBought: 0
+        },
+        categories: {
+            stocks: false,
+            realEstate: false,
+            business: false
+        }
+    };
+}
+
 let currentAsset = "growth";
 
 function generateInitialCandles(startPrice, count = MAX_CANDLES) {
@@ -219,6 +311,7 @@ let milestonesState = {
     firstTarget: 10000,
     firstReached: false
 };
+let challengeState = createDefaultChallengeState();
 let monthlyCashflow = {
     income: 0,
     expenses: 0
@@ -827,6 +920,14 @@ function openTrade(type) {
     addTransaction(`Otevřena pozice (${assets[currentAsset].name}, ${formatLeverage(trade)})`, -(margin + COMMISSION));
     trades.push(trade);
 
+    recordChallengeEvent("tradesOpened", "stocks");
+    if (Number.isFinite(sl) || Number.isFinite(tp)) {
+        recordChallengeEvent("protectedTrades", "stocks");
+    }
+    if (leverage === MAX_LEVERAGE) {
+        recordChallengeEvent("leveragedTrades", "stocks");
+    }
+
     addTradeMarker(type);
     renderTrades();
 }
@@ -895,7 +996,9 @@ function calculateLoanLimit() {
 }
 
 function renderGameHud(netWorth) {
-    const earned = Math.max(0, round2(netWorth - STARTING_CAPITAL));
+    const financialXp = Math.max(0, round2(netWorth - STARTING_CAPITAL));
+    const missionXp = Math.max(0, Number(challengeState?.xp) || 0);
+    const earned = financialXp + missionXp;
     const levelSize = 10000;
     const level = Math.floor(earned / levelSize) + 1;
     const levelStart = (level - 1) * levelSize;
@@ -933,8 +1036,12 @@ function renderGameHud(netWorth) {
         `${formatNumberGrouped(levelProgress)} / ${formatNumberGrouped(levelSize)} XP`;
     if (debtEl) debtEl.innerHTML = formatCurrencyInt(debt);
     if (missionEl) {
-        missionEl.innerText =
-            `${Math.round(Math.min(100, earned / milestonesState.firstTarget * 100))} %`;
+        const active = getActiveChallenge();
+        const progress = active ? getChallengeProgress(active.id) : 1;
+        const target = active?.target || 1;
+        missionEl.innerText = active
+            ? `${Math.round(Math.min(100, progress / target * 100))} %`
+            : "100 %";
     }
 
     let health = "Stabilní";
@@ -1132,6 +1239,7 @@ function buyRealEstate(key) {
 
     balance = round2(balance - item.value);
     item.owned += 1;
+    recordChallengeEvent("propertiesBought", "realEstate");
     addTransaction(`Koupeno: ${item.name}`, -item.value);
     renderRealEstatePage();
     updateAccount();
@@ -1193,6 +1301,7 @@ function buyBusinessShop() {
 
     balance = round2(balance - shop.value);
     shop.owned += 1;
+    recordChallengeEvent("businessesBought", "business");
     addTransaction("Koupeno: E-shop", -shop.value);
     renderBusinessPage();
     updateAccount();
@@ -1217,6 +1326,7 @@ function buyCarWash() {
     if (balance < item.value) return alert("Nedostatek volných prostředků.");
     balance = round2(balance - item.value);
     item.owned += 1;
+    recordChallengeEvent("businessesBought", "business");
     addTransaction("Koupeno: Samoobslužná myčka", -item.value);
     renderBusinessPage();
     updateAccount();
@@ -1772,21 +1882,204 @@ function renderGameTime() {
     el.innerText = yearPart ? `${yearPart} a ${monthPart}` : monthPart;
 }
 
-function renderMilestones(currentProfit = null) {
-    const bar = document.getElementById("milestoneProgressBar");
-    const text = document.getElementById("milestoneProgressText");
-    if (!bar || !text) return;
+function normalizeChallengeState(value) {
+    const defaults = createDefaultChallengeState();
+    if (!value || typeof value !== "object") return defaults;
 
-    const profit = currentProfit == null ? 0 : currentProfit;
-    const clamped = Math.max(0, Math.min(milestonesState.firstTarget, profit));
-    const progressPct = (clamped / milestonesState.firstTarget) * 100;
-    bar.style.width = `${progressPct}%`;
-    text.innerHTML = `${formatCurrencyInt(clamped)} / ${formatCurrencyInt(milestonesState.firstTarget)}`;
+    return {
+        xp: Math.max(0, Number(value.xp) || 0),
+        claimed: value.claimed && typeof value.claimed === "object" ? { ...value.claimed } : {},
+        counters: {
+            ...defaults.counters,
+            ...(value.counters && typeof value.counters === "object" ? value.counters : {})
+        },
+        categories: {
+            ...defaults.categories,
+            ...(value.categories && typeof value.categories === "object" ? value.categories : {})
+        }
+    };
+}
 
-    if (!milestonesState.firstReached && profit >= milestonesState.firstTarget) {
-        milestonesState.firstReached = true;
-        alert("🎉 Gratulace! Dosáhl jsi prvního milníku: 10 000 💵 vydělaných peněz.");
+function recordChallengeEvent(counter, category = null, amount = 1) {
+    challengeState = normalizeChallengeState(challengeState);
+    if (counter in challengeState.counters) {
+        challengeState.counters[counter] = Math.max(
+            0,
+            Number(challengeState.counters[counter]) || 0
+        ) + amount;
     }
+    if (category && category in challengeState.categories) {
+        challengeState.categories[category] = true;
+    }
+    renderMilestones();
+}
+
+function getChallengeCategoryCount() {
+    const categories = {
+        stocks: Boolean(challengeState?.categories?.stocks) ||
+            trades.length > 0 ||
+            (window.closedTrades?.length || 0) > 0,
+        realEstate: Boolean(challengeState?.categories?.realEstate) ||
+            Object.values(realEstates).some(item => Number(item.owned) > 0),
+        business: Boolean(challengeState?.categories?.business) ||
+            Number(businessState.shop?.owned) > 0 ||
+            Number(businessState.carWash?.owned) > 0
+    };
+    return Object.values(categories).filter(Boolean).length;
+}
+
+function getChallengeProgress(id, financialGrowth = null) {
+    challengeState = normalizeChallengeState(challengeState);
+    const counters = challengeState.counters;
+    const closed = window.closedTrades || [];
+
+    switch (id) {
+        case "first_trade":
+            return Math.max(counters.tradesOpened, trades.length + closed.length > 0 ? 1 : 0);
+        case "risk_manager":
+            return Math.max(
+                counters.protectedTrades,
+                trades.some(trade => Number.isFinite(trade.sl) || Number.isFinite(trade.tp)) ? 1 : 0
+            );
+        case "leverage_lesson":
+            return Math.max(
+                counters.leveragedTrades,
+                trades.some(trade => getTradeLeverage(trade) === MAX_LEVERAGE) ||
+                closed.some(trade => getTradeLeverage(trade) === MAX_LEVERAGE) ? 1 : 0
+            );
+        case "wealth_builder":
+            return Math.max(
+                0,
+                financialGrowth == null
+                    ? round2(calculateNetWorth() - STARTING_CAPITAL)
+                    : Number(financialGrowth) || 0
+            );
+        case "first_business":
+            return Math.max(
+                counters.businessesBought,
+                Number(businessState.shop?.owned) > 0 || Number(businessState.carWash?.owned) > 0 ? 1 : 0
+            );
+        case "first_property":
+            return Math.max(
+                counters.propertiesBought,
+                Object.values(realEstates).some(item => Number(item.owned) > 0) ? 1 : 0
+            );
+        case "diversified":
+            return getChallengeCategoryCount();
+        default:
+            return 0;
+    }
+}
+
+function getActiveChallenge() {
+    return CHALLENGE_DEFINITIONS.find(def => !challengeState?.claimed?.[def.id]) || null;
+}
+
+function claimChallenge(id) {
+    challengeState = normalizeChallengeState(challengeState);
+    const index = CHALLENGE_DEFINITIONS.findIndex(def => def.id === id);
+    const challenge = CHALLENGE_DEFINITIONS[index];
+    if (!challenge || challengeState.claimed[id]) return;
+
+    const isUnlocked = index === 0 || Boolean(
+        challengeState.claimed[CHALLENGE_DEFINITIONS[index - 1].id]
+    );
+    if (!isUnlocked) return alert("Nejdřív dokonči a vyzvedni předchozí výzvu.");
+
+    const progress = getChallengeProgress(id);
+    if (progress < challenge.target) return alert("Tato výzva ještě není dokončená.");
+
+    challengeState.claimed[id] = true;
+    challengeState.xp = round2(challengeState.xp + challenge.rewardXp);
+    balance = round2(balance + challenge.rewardCash);
+    addTransaction(`Odměna za výzvu: ${challenge.title}`, challenge.rewardCash);
+
+    updateAccount();
+    saveGameState();
+    alert(`🏆 Výzva dokončena: ${challenge.title}\n+${challenge.rewardXp} XP a +${formatCurrencyInt(challenge.rewardCash)}`);
+}
+
+function renderChallenges(financialGrowth = null) {
+    challengeState = normalizeChallengeState(challengeState);
+    const grid = document.getElementById("challengeGrid");
+    const completedCount = CHALLENGE_DEFINITIONS.filter(
+        def => challengeState.claimed[def.id]
+    ).length;
+    const firstUnclaimedIndex = CHALLENGE_DEFINITIONS.findIndex(
+        def => !challengeState.claimed[def.id]
+    );
+
+    if (grid) {
+        grid.innerHTML = "";
+        CHALLENGE_DEFINITIONS.forEach((challenge, index) => {
+            const progress = Math.min(
+                challenge.target,
+                getChallengeProgress(challenge.id, financialGrowth)
+            );
+            const progressPct = Math.min(100, (progress / challenge.target) * 100);
+            const isClaimed = Boolean(challengeState.claimed[challenge.id]);
+            const isUnlocked = index === 0 || Boolean(
+                challengeState.claimed[CHALLENGE_DEFINITIONS[index - 1].id]
+            );
+            const isComplete = progress >= challenge.target;
+            const card = document.createElement("article");
+            card.className = `card challenge-card ${isClaimed ? "claimed" : isComplete && isUnlocked ? "complete" : !isUnlocked ? "locked" : "active"}`;
+
+            const progressText = challenge.id === "wealth_builder"
+                ? `${formatCurrencyInt(progress)} / ${formatCurrencyInt(challenge.target)}`
+                : `${Math.round(progress)} / ${challenge.target}`;
+            const action = isClaimed
+                ? '<span class="challenge-done">✓ Odměna vyzvednuta</span>'
+                : !isUnlocked
+                    ? '<span class="challenge-locked">🔒 Dokonči předchozí misi</span>'
+                    : isComplete
+                        ? `<button class="challenge-claim" onclick="claimChallenge('${challenge.id}')">Vyzvednout odměnu</button>`
+                        : '<span class="challenge-in-progress">Mise probíhá</span>';
+
+            card.innerHTML = `
+                <div class="challenge-card-head">
+                    <span class="challenge-icon">${isClaimed ? "✓" : challenge.icon}</span>
+                    <div><span class="challenge-category-label">${challenge.category}</span><h3>${challenge.title}</h3></div>
+                    <span class="challenge-number">${index + 1}/${CHALLENGE_DEFINITIONS.length}</span>
+                </div>
+                <p>${challenge.description}</p>
+                <div class="challenge-rewards"><span>+${challenge.rewardXp} XP</span><span>+${formatCurrencyInt(challenge.rewardCash)}</span></div>
+                <div class="challenge-progress-row"><span>Postup</span><strong>${progressText}</strong></div>
+                <div class="challenge-progress-track"><span style="width:${progressPct}%"></span></div>
+                <div class="challenge-card-action">${action}</div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    const countEl = document.getElementById("challengeCompletedCount");
+    const xpEl = document.getElementById("challengeXpEarned");
+    const hintEl = document.getElementById("challengeClaimHint");
+    if (countEl) countEl.innerText = `${completedCount} / ${CHALLENGE_DEFINITIONS.length}`;
+    if (xpEl) xpEl.innerText = `${formatNumberGrouped(challengeState.xp)} XP`;
+    if (hintEl) {
+        hintEl.innerText = completedCount === CHALLENGE_DEFINITIONS.length
+            ? "Investiční cesta je dokončená."
+            : `${CHALLENGE_DEFINITIONS.length - completedCount} výzev ještě čeká.`;
+    }
+
+    const active = firstUnclaimedIndex >= 0
+        ? CHALLENGE_DEFINITIONS[firstUnclaimedIndex]
+        : null;
+    const titleEl = document.getElementById("currentMissionTitle");
+    const descriptionEl = document.getElementById("currentMissionDescription");
+    const progressEl = document.getElementById("currentMissionProgress");
+    if (titleEl) titleEl.innerText = active?.title || "Všechny výzvy dokončeny";
+    if (descriptionEl) descriptionEl.innerText = active?.description || "Dokázal jsi projít celou současnou investiční cestu.";
+    if (progressEl) {
+        const progress = active ? getChallengeProgress(active.id, financialGrowth) : 1;
+        const target = active?.target || 1;
+        progressEl.innerText = `${Math.round(Math.min(100, progress / target * 100))} %`;
+    }
+}
+
+function renderMilestones(currentProfit = null) {
+    renderChallenges(currentProfit);
 }
 
 function applyCheatBalance() {
@@ -2321,6 +2614,9 @@ function buildSaveText() {
     text += "=== MILESTONES ===\n";
     text += `${JSON.stringify(milestonesState)}\n\n`;
 
+    text += "=== CHALLENGE STATE ===\n";
+    text += `${JSON.stringify(challengeState)}\n\n`;
+
     text += "=== MONTHLY CASHFLOW ===\n";
     text += `${JSON.stringify(monthlyCashflow)}\n\n`;
 
@@ -2449,6 +2745,7 @@ function parseImportedData(text, options = {}) {
     transactionHistory = [];
     accountHistory = [];
     milestonesState = { firstTarget: 10000, firstReached: false };
+    challengeState = createDefaultChallengeState();
     monthlyCashflow = { income: 0, expenses: 0 };
     realEstates = createDefaultRealEstates();
     businessState = {
@@ -2534,6 +2831,16 @@ function parseImportedData(text, options = {}) {
             }
         } catch {
             // keep defaults
+        }
+    }
+
+    /* ----- CHALLENGE STATE ----- */
+    let secChallenges = getSection("CHALLENGE STATE");
+    if (secChallenges) {
+        try {
+            challengeState = normalizeChallengeState(JSON.parse(secChallenges.split("\n")[0]));
+        } catch {
+            challengeState = createDefaultChallengeState();
         }
     }
 
@@ -2849,6 +3156,7 @@ function newGame() {
     transactionHistory = [];
     accountHistory = [];
     milestonesState = { firstTarget: 10000, firstReached: false };
+    challengeState = createDefaultChallengeState();
     monthlyCashflow = { income: 0, expenses: 0 };
     loanState = { principal: 0, totalDue: 0, remainingBalance: 0, monthlyPayment: 0, remainingInstallments: 0 };
     selectedLoanAmount = 0;
