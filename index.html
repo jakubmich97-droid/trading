@@ -389,6 +389,19 @@
         <article class="card chart-panel"><span class="eyebrow">Co ti vydělává</span><h3>Příjmy</h3><canvas id="incomeChart" width="520" height="520"></canvas><div id="incomeLegend" class="portfolio-legend"></div></article>
         <article class="card chart-panel"><span class="eyebrow">Kam peníze odtékají</span><h3>Náklady</h3><canvas id="costChart" width="520" height="520"></canvas><div id="costLegend" class="portfolio-legend"></div></article>
       </div>
+      <section class="card annual-report-panel">
+        <div class="annual-report-head">
+          <div><span class="eyebrow">Roční účetní uzávěrka</span><h3>Výsledky podle let</h3></div>
+          <span class="tax-rate-badge">Daň ze zisku 15 %</span>
+        </div>
+        <div class="annual-report-summary" id="annualReportSummary"></div>
+        <div class="annual-report-table-wrap">
+          <table class="annual-report-table">
+            <thead><tr><th>Rok</th><th>Příjmy</th><th>Provozní výdaje</th><th>Daň</th><th>Výdaje celkem</th><th>Rozdíl</th></tr></thead>
+            <tbody id="annualReportBody"><tr><td colspan="6" class="annual-report-empty">První uzávěrka vznikne po 12 měsících hry.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </section>
 
